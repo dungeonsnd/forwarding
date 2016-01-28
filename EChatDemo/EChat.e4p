@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Project SYSTEM "Project-5.1.dtd">
+<!-- eric project file for project EChat -->
+<!-- Saved: 2016-01-14, 14:34:08 -->
+<!-- Copyright (C) 2016 jef, dungeonsnd@gmail.com -->
+<Project version="5.1">
+  <Language></Language>
+  <Hash>9f54174e9e2f49a45ad5ed1381d6a2cf703713d6</Hash>
+  <ProgLanguage mixed="0">Python2</ProgLanguage>
+  <ProjectType>Qt4</ProjectType>
+  <Description>chat.</Description>
+  <Version>0.1</Version>
+  <Author>jef</Author>
+  <Email>dungeonsnd@gmail.com</Email>
+  <Eol index="1"/>
+  <Sources>
+    <Source>__init__.py</Source>
+    <Source>Ui_DlgChat.py</Source>
+    <Source>DlgChat.py</Source>
+    <Source>EChat.py</Source>
+    <Source>pack.py</Source>
+  </Sources>
+  <Forms>
+    <Form>DlgChat.ui</Form>
+  </Forms>
+  <Translations/>
+  <Resources/>
+  <Interfaces/>
+  <Others/>
+  <MainScript>EChat.py</MainScript>
+  <Vcs>
+    <VcsType>None</VcsType>
+  </Vcs>
+  <FiletypeAssociations>
+    <FiletypeAssociation pattern="*.idl" type="INTERFACES"/>
+    <FiletypeAssociation pattern="*.ptl" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.py" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.py2" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.pyw" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.pyw2" type="SOURCES"/>
+    <FiletypeAssociation pattern="*.qm" type="TRANSLATIONS"/>
+    <FiletypeAssociation pattern="*.qrc" type="RESOURCES"/>
+    <FiletypeAssociation pattern="*.ts" type="TRANSLATIONS"/>
+    <FiletypeAssociation pattern="*.ui" type="FORMS"/>
+  </FiletypeAssociations>
+</Project>
