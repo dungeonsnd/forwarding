@@ -24,4 +24,5 @@ _testmain.go
 
 *.DS_Store
 *.pyc
+*.eric6project
 
