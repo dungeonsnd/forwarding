@@ -321,6 +321,10 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             
             if self.all_chids.has_key(chid_utf8):
                 self.all_chids[chid_utf8]["last_heartbeat_time"] =timenow
+            else: 
+            # 说明长时间没有收到心跳，已经移除了通道信息。但是过段时间又收到了心跳，故认为网络恢复了。
+            #   所以考虑容错时重新保存通道信息，但是丢失了原始的 join_time，用当前时间代替。
+                self.all_chids[[chid_utf8]] ={"join_time":timenow,"last_heartbeat_time":timenow}
                 
             self.lableShow.setText(u'%s 收到来自[%s]心跳'%(self.formatTime(timenow), chid))
         else : # 其它消息
@@ -407,7 +411,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             for (i, v) in self.all_chids.items():
                 join_time =self.formatTime(v["join_time"])
                 last_heartbeat_time =self.formatTime(v["last_heartbeat_time"])
-                ss =ss+u'[%s] 加入时间:%s  最后心跳时间:%s \n'%(i.decode('utf-8'), 
+                ss =ss+u'[%s] 加入时间:%s  心跳时间:%s \n'%(i.decode('utf-8'), 
                     join_time.decode('utf-8'), last_heartbeat_time.decode('utf-8'))
         if len(ss)>0:            
             QtGui.QMessageBox.information( self, u'在线列表', ss )
