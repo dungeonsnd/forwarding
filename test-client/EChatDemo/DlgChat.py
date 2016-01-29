@@ -26,7 +26,7 @@ current_version ='0.92'  # 当前软件版本
 timesec_send_heartbeat =10  # 发送心跳的间隔
 timesec_check_heartbeat =15  # 检查心跳的间隔
 timesec_heartbeat_timeout =120  # 心跳的超时删除chid的时间
-timesec_ntpsyc =5  # ntp同步间隔
+timesec_ntpsyc =60  # ntp同步间隔
 url_checkupdate ='https://raw.githubusercontent.com/dungeonsnd/forwarding/master/test-client/EChatDemo/dist/verion.txt'
 need_update =False # 是否需要升级
 lastest_version =''  # 最新软件版本
@@ -34,23 +34,21 @@ lastest_version =''  # 最新软件版本
 def procCheckUpdateFromGithub():
     global need_update
     global lastest_version
-    
-    while True:
-        try:
-            html =urllib2.urlopen( url_checkupdate ).read()
-            d =json.loads(html)
-            if d.has_key('source'):
-                if current_version!=d['source']:
-                    lastest_version =d['source']
-                    need_update =True
-        except :
-            pass
-        need_update =False
-        time.sleep(300)
+    try:
+        html =urllib2.urlopen( url_checkupdate ).read()
+        d =json.loads(html)
+        if d.has_key('source'):
+            if current_version!=d['source']:
+                lastest_version =d['source']
+                need_update =True
+    except :
+        pass
+    need_update =False
 
 def startCheckUpdate():   
     t =threading.Thread(target=procCheckUpdateFromGithub, args=())
     t.start()
+    return t
 
 
 class DlgChat(QtGui.QDialog, Ui_Dialog):
@@ -76,6 +74,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.connected =False
         self.join_time =0
         self.all_chids ={} # chid->{"join_time":join_time,"last_heartbeat_time":last_heartbeat_time}
+        self.threads =[]
         
         self.opacity =0.95
         
@@ -104,7 +103,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.timer.start(1000)
         self.time_count =0
         
-        startCheckUpdate()
+        self.threads.append(startCheckUpdate())
         
     def onTimer(self):
         self.time_count +=1
@@ -123,9 +122,14 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                     break
         
         # check update
-        if ( self.time_count%3==0 or self.time_count==1 ) and need_update:
-            self.lableShow.setText(u'检测到新版本可用，请升级! 当前版本%s,最新版本%s.'%(current_version.decode('utf-8'), 
+        if ( self.time_count%10==0 or self.time_count==1 ) :
+            if need_update:
+                self.lableShow.setText(u'检测到新版本可用，请升级! 当前版本%s,最新版本%s.'%(current_version.decode('utf-8'), 
                 lastest_version.decode('utf-8')))
+            
+            for t in self.threads:
+                t.join()      
+            self.threads.append(startCheckUpdate())
 
         # heartbeat
         if self.time_count%timesec_send_heartbeat==0 and self.connected:
@@ -167,8 +171,11 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 'chid':self.chid,
                 'timenow':self.timeNow() } )
             if self.sock:
-                self.sock.close()
+                self.sock.close() 
             event.accept()
+            
+            for t in self.threads:
+                t.join()      
         else:
             event.ignore()
 
@@ -318,7 +325,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
 
         elif u'heartbeat'==cmd: # 收到心跳
             flicker =False
-            
+                        
             if self.all_chids.has_key(chid_utf8):
                 self.all_chids[chid_utf8]["last_heartbeat_time"] =timenow
             else: 
@@ -411,7 +418,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             for (i, v) in self.all_chids.items():
                 join_time =self.formatTime(v["join_time"])
                 last_heartbeat_time =self.formatTime(v["last_heartbeat_time"])
-                ss =ss+u'[%s] 加入时间:%s  心跳时间:%s \n'%(i.decode('utf-8'), 
+                ss =ss+u'[%s] 加入时间:%s  最后心跳时间:%s \n'%(i.decode('utf-8'), 
                     join_time.decode('utf-8'), last_heartbeat_time.decode('utf-8'))
         if len(ss)>0:            
             QtGui.QMessageBox.information( self, u'在线列表', ss )
