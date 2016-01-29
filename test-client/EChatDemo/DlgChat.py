@@ -17,6 +17,12 @@ import urllib2
 
 print_log =False
 send_connected_info =True
+current_version ='0.91'
+
+# private
+timesec_send_heartbeat =5  # 发送心跳的间隔
+timesec_check_heartbeat =12  # 检查心跳的间隔
+timesec_heartbeat_timeout =30  # 心跳的超时删除chid的时间
 
 class DlgChat(QtGui.QDialog, Ui_Dialog):
     """
@@ -36,14 +42,14 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.url ='https://raw.githubusercontent.com/dungeonsnd/myexternalresources/master/rpi_ip_encrypted/ip.txt'
         
         self.connected =False
-        self.join_time =''
-        self.all_chids ={} # chid->join_time
+        self.join_time =0
+        self.all_chids ={} # chid->{"join_time":join_time,"last_heartbeat_time":last_heartbeat_time}
         
         self.opacity =0.95
         
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
-        self.setWindowTitle(u'EChat v0.9  ----来自开发者小杰 dungeonsnd@gmail.com')
+        self.setWindowTitle(u'EChat v%s  ----来自开发者小杰 dungeonsnd@gmail.com'%(current_version))
         self.setWindowFlags(QtCore.Qt.Window)
         self.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint)
         self.setFixedSize(self.width(), self.height());
@@ -52,12 +58,44 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         #self.color=QtGui.QColor(60, 80, 80)
         #self.setStyleSheet('QWidget{background-color:%s}'%self.color.name())
         
-        self.editInfo.append(u"EChat会建立安全通道, 能够确保你的聊天消息不会任何个人或组织窃取! 包括软件作者及服务器端也无法获知你的聊天内容!")
-        self.editInfo.append(u"Windows 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar")
-        self.editInfo.append(u"Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz")
-        self.editInfo.append(u"请输入 加密密钥和用户名称，然后单击连接服务，等待连接成功后就可以加入群聊。服务器不填使用默认服务器。")
-        self.editInfo.append(u"注意, 加密密钥必须较长且复杂不易被人猜测到，否则猜到密码就可以加入你的群聊中!  Good day! ")
+        self.insertEditInfo(u"EChat会建立安全通道, 能够确保你的聊天消息不会任何个人或组织窃取! 包括软件作者及服务器端也无法获知你的聊天内容!")
+        self.insertEditInfo(u"Windows 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar")
+        self.insertEditInfo(u"Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz")
+        self.insertEditInfo(u"请输入 加密密钥和用户名称，然后单击连接服务，等待连接成功后就可以加入群聊。服务器不填使用默认服务器。")
+        self.insertEditInfo(u"注意, 加密密钥必须较长且复杂不易被人猜测到，否则猜到密码就可以加入你的群聊中!  Good day! ")
 
+        self.lableShow.setText(u'暂未连接服务！')
+        
+        # create timer
+        self.timer=QtCore.QTimer()
+        QtCore.QObject.connect(self.timer,QtCore.SIGNAL("timeout()"), self.onTimer)
+        self.timer.start(1000)
+        self.time_count =0
+        
+    def onTimer(self):
+        self.time_count +=1
+        
+        # heartbeat
+        if self.time_count%timesec_send_heartbeat==0 and self.connected:
+            d ={'cmd':'heartbeat','chid':self.chid, 'timenow':self.timeNow()}
+            self.sendDic(d)
+        
+        # check timeout
+        if self.time_count%timesec_check_heartbeat==0 and self.connected and len(self.all_chids)>0:
+            for (i, v) in self.all_chids.items():
+                join_time =v["join_time"]
+                last_heartbeat_time =v["last_heartbeat_time"]
+                timenow =self.timeNow()
+                if print_log:
+                    print 'onTimer, chid=', i.decode('utf-8')
+                    print 'onTimer, timenow=', timenow
+                    print 'onTimer, last_heartbeat_time=', last_heartbeat_time
+                if timenow-last_heartbeat_time < timesec_heartbeat_timeout:
+                    continue
+                del(self.all_chids[i])
+                self.editOutput.append(u'[%s] [系统消息] 长时间未收到 %s (加入时间 %s)的心跳 (最后心跳时间 %s)，已经离开了聊天'%
+                    (self.formatTime(timenow), i.decode('utf-8'), self.formatTime(join_time), self.formatTime(last_heartbeat_time)))
+    
     def keyPressEvent(self, e):
         if QtCore.Qt.Key_Escape==e.key():
             self.close()
@@ -86,9 +124,21 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         else:
             event.ignore()
 
+    def formatTime(self, timeInt):
+        return time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(timeInt))
     def timeNow(self):
-        return time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))
+        return time.time()
+    
+    def clearConnectedInfo(self):
+        self.connected =False
+        self.join_time =0
+    
+    def insertEditInfo(self, ustr):        
+        self.editInfo.append(ustr)
         
+        sb =self.editInfo.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
     def sendDic(self, dic):
         if print_log:
             print 'DlgChat::sendDic=', dic
@@ -98,9 +148,8 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 self.sock.send(output)
             except :
                 self.sock.close()
-                self.connected =False
-                self.join_time =''
-                self.editInfo.append(u'服务器已断连，请重新连接服务!');
+                self.clearConnectedInfo()
+                self.insertEditInfo(u'服务器已断连，请重新连接服务!');
                 return False
             else:
                 return True
@@ -109,7 +158,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
 
     def sendMsg(self):
         if not self.sock:
-            self.editInfo.append(u"请先连接服务器！");
+            self.insertEditInfo(u"请先连接服务器！");
             QtGui.QMessageBox.information( self, u'信息', u'请先连接服务器！' )
             return 
             
@@ -120,32 +169,37 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             'txt':str(txtUnicode.toUtf8()),  
             'timenow':timenow}
         if not self.sendDic(dic):
-            self.editInfo.append(u"发送失败！");
+            self.insertEditInfo(u"发送失败！");
             return
 
-        self.editOutput.append('['+timenow +'] '+self.chid.decode('utf-8') +u' (自己)说: '+ txtUnicode)
+        self.editOutput.append('['+self.formatTime(timenow) +'] '+
+            self.chid.decode('utf-8') +u' (自己)说: '+ txtUnicode)
         self.editInput.clear()
 
     def socket_connection_timeout(self, sock, host, port):
-        self.connected =False
-        self.join_time =''
-        self.editInfo.append(u'连接服务 %s:%s 超时! ' % (host, port))
+        self.clearConnectedInfo()
+        self.insertEditInfo(u'连接服务 %s:%s 超时! ' % (host, port))
 
     def socket_did_connect(self, sock, host, port):
-        self.editInfo.append(u'已经连接上服务 %s:%d'%(self.host, self.port))
+        self.insertEditInfo(u'已经连接上服务%s:%d  密钥的指纹:%s'%(self.host.decode('utf-8'), 
+            self.port,  pack.fingerprintSimple(self.pwd).decode('utf-8') ))
+            
+        self.lableShow.setText(u'已经连接上服务！')
+        
         self.connected =True
-        self.sock =sock
-        sock.read_until_data = '\r\n'
         timenow =self.timeNow()
         self.join_time =timenow
+        self.sock =sock
+        sock.read_until_data = '\r\n'
         
         if send_connected_info:
             self.sendDic( { 'cmd':'new_client_join',
             'chid':self.chid,
             'timenow':timenow } )
-            self.editOutput.append(u'[%s] [系统消息] 欢迎 %s 加入聊天'%(timenow, self.chid.decode('utf-8')))
+            self.editOutput.append(u'[%s] [系统消息] 欢迎 %s 加入聊天'%(self.formatTime(timenow), 
+                self.chid.decode('utf-8')))
     def socket_did_secure(self, sock):
-        self.editInfo.append(u'enter socket_did_secure. ')
+        self.insertEditInfo(u'enter socket_did_secure. ')
     
     def onRecvedFile(self, d, chid_utf8, timenow):
         reply = QtGui.QMessageBox.question(self, u'通知',
@@ -163,14 +217,14 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
 
     def onNewClientJoin(self, chid_utf8, timenow):
         # 保存新加入的人
-        self.all_chids[chid_utf8] =timenow            
+        self.all_chids[chid_utf8] ={"join_time":timenow,"last_heartbeat_time":timenow}            
         # 通知新加入的人自己在线
         self.sendDic({'cmd':'already_online_client', 
             'join_time':self.join_time,
             'new_join_chid': chid_utf8,
             'chid':self.chid, 
             'timenow':self.timeNow()})        
-        self.editOutput.append(u'[%s] [系统消息] %s 加入了聊天'%(timenow, chid_utf8.decode('utf-8')))
+        self.editOutput.append(u'[%s] [系统消息] %s 加入了聊天'%(self.formatTime(timenow), chid_utf8.decode('utf-8')))
         
     def socket_read_data(self, sock, data):
         # zokket收到的是unicode编码 ,转换为utf-8再进行json解析。
@@ -196,11 +250,11 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         if u'client_leave'==cmd: # 已经在线的人 收到其它人离线报文
             if self.all_chids.has_key(chid_utf8):
                 del(self.all_chids[chid_utf8])
-                self.editOutput.append(u'[%s] [系统消息] %s 离开了聊天'%(timenow, chid))
+                self.editOutput.append(u'[%s] [系统消息] %s 离开了聊天'%(self.formatTime(timenow), chid))
             
-        elif u'already_online_client'==cmd: # 新加入的人(以及其它人) 收到在线通知，只有新加入的人才处理. 
-            if d['new_join_chid'].encode('utf-8')==self.chid:         
-                self.all_chids[chid_utf8] =d['join_time']# 保存在线的人
+        elif u'already_online_client'==cmd: # 新加入的人收到其它在线通知 
+            if self.chid==d['new_join_chid'].encode('utf-8'): # 只有新加入的人才处理
+                self.all_chids[chid_utf8] ={"join_time":d['join_time'],"last_heartbeat_time":d['join_time']}
                 
         elif u'sendfile'==cmd: # 收到文件通知
             self.onRecvedFile(d, chid_utf8, timenow)
@@ -212,7 +266,15 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 QtGui.QMessageBox.information( self, u'系统通知', u'%s 拒接了文件%s'%(chid,  d['filename']) )   
                 
         elif u'msg'==cmd: # 收到消息
-            self.editOutput.append(u'[%s] %s 说: %s'%(timenow, chid, d['txt']))
+            self.editOutput.append(u'[%s] %s 说: %s'%(self.formatTime(timenow), chid, d['txt']))
+
+        elif u'heartbeat'==cmd: # 收到心跳
+            flicker =False
+            
+            if self.all_chids.has_key(chid_utf8):
+                self.all_chids[chid_utf8]["last_heartbeat_time"] =timenow
+                
+            self.lableShow.setText(u'收到心跳 来自[%s] %s'%(self.formatTime(timenow), chid))
         else : # 其它消息
             flicker =False
 
@@ -220,10 +282,8 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             QtGui.QApplication.alert(self, 0) # windows任务栏闪烁提醒.   
    
     def socket_did_disconnect(self, sock, err=None):
-        self.connected =False
-        self.join_time =''
-        self.editInfo.append(u'Disconnected ')
-        self.editInfo.append(u'服务 %s:%s 已断开'% (self.host.decode('utf-8'), self.port))
+        self.clearConnectedInfo()
+        self.insertEditInfo(u'服务 %s:%s 已断开'% (self.host.decode('utf-8'), self.port))
         
     def getHostFromGithub(self):
         html =urllib2.urlopen( self.url ).read()
@@ -232,7 +292,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         s =html[idx1+len('external=')+1:idx2-1]                    
         ip ='.'.join( str(int(x)-10001) for x in s.split('.') )
         #print 'get ip from github is:', ip
-        self.editInfo.append(u"获取服务ip成功 %s"%(ip.decode('utf-8')))
+        self.insertEditInfo(u"获取服务ip成功 %s"%(ip.decode('utf-8')))
         if len(ip)>0:
             self.host =ip
             self.port =443
@@ -247,13 +307,13 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             
         pwd =self.editPwd.text()
         if len(pwd)<1:
-            self.editInfo.append(u'加密密钥不能为空！');
+            self.insertEditInfo(u'加密密钥不能为空！');
             return
         self.pwd =str(pwd.toUtf8())
         
         chid =self.editChid.text()
         if len(chid)<1:
-            self.editInfo.append(u'用户名称不能为空！');
+            self.insertEditInfo(u'用户名称不能为空！');
             return
         self.chid =str(chid.toUtf8())
         #print 'self.chid=', self.chid
@@ -265,19 +325,19 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 self.host =r[0]
             if len(r)>1:
                 self.port =int(r[1])
-            self.editInfo.append(u"使用输入的服务地址, %s:%d"%(self.host.decode('utf-8'), self.port))
+            self.insertEditInfo(u"使用输入的服务地址, %s:%d"%(self.host.decode('utf-8'), self.port))
         else:
             self.host =''
 
         if len(self.host)<1 or self.port<1 : # Use default.
-            self.editInfo.append(u"正在获取服务ip, 请稍候...")
+            self.insertEditInfo(u"正在获取服务ip, 请稍候...")
             try:
                 self.getHostFromGithub()
             except:
-                self.editInfo.append(u"获取服务地址失败, %s:%d"%(self.host, self.port))
+                self.insertEditInfo(u"获取服务地址失败, %s:%d"%(self.host, self.port))
             else:
                 zokket.TCPSocket(self).connect(host=self.host, port=self.port, timeout=6)
-                self.editInfo.append(u"正在连接 %s:%d ..."%(self.host, self.port))        
+                self.insertEditInfo(u"正在连接 %s:%d ..."%(self.host, self.port))        
                 self.btnConnectSvr.enable =False;
     
     
@@ -297,7 +357,10 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         ss =u''
         if len(self.all_chids)>0:
             for (i, v) in self.all_chids.items():
-                ss =ss+u'%s 加入时间:%s \n'%(i.decode('utf-8'), v.decode('utf-8'))
+                join_time =self.formatTime(v["join_time"])
+                last_heartbeat_time =self.formatTime(v["last_heartbeat_time"])
+                ss =ss+u'[%s] 加入时间:%s  最后心跳时间:%s \n'%(i.decode('utf-8'), 
+                    join_time.decode('utf-8'), last_heartbeat_time.decode('utf-8'))
         if len(ss)>0:            
             QtGui.QMessageBox.information( self, u'在线列表', ss )
         else:
@@ -308,8 +371,11 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         """
         Slot documentation goes here.
         """
+        QtGui.QMessageBox.information( self, u'信息', u'暂时不支持该功能' )
+        return
+        
         if not self.sock:
-            self.editInfo.append(u"请先连接服务器！");
+            self.insertEditInfo(u"请先连接服务器！");
             return
             
         s = QtGui.QFileDialog.getOpenFileName(None, u"open file dialog")
@@ -322,7 +388,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 'timenow':self.timeNow()}
             output =pack.pack(self.pwd, d)
             if len(output)<1:
-                self.editInfo.append(u"发送文件失败！");
+                self.insertEditInfo(u"发送文件失败！");
             else:
                 self.sock.send(output)
     
@@ -339,3 +405,4 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         Slot documentation goes here.
         """
         QtGui.QMessageBox.information( self, u'信息', u'暂时不支持该功能' )
+

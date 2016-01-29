@@ -10,7 +10,7 @@ from DlgChat import *
 
 from zokket.qt import QtRunloop
 
-if __name__ == "__main__":
+def main():
     app = QtGui.QApplication(sys.argv)
     
     QtRunloop.set_default(app)
@@ -18,4 +18,6 @@ if __name__ == "__main__":
     dlg = DlgChat()
     dlg.show()
     sys.exit(app.exec_())
-    
+
+if __name__ == "__main__":
+    main()

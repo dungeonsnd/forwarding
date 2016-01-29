@@ -7,6 +7,8 @@ import base64
 import json
 import zlib
 
+import binascii
+
 from Crypto.Cipher import AES
 from Crypto import Random
 
@@ -17,6 +19,9 @@ randomiv_len =4
 
 print_log =False
 
+# 输入密码，输出其hash值的前两个字节的16进制表示.
+def fingerprintSimple(input_str):
+    return binascii.hexlify(hashlib.sha256(input_str).digest()[0:2])
 
 def hash(input):
     return hashlib.sha256(input).digest()
@@ -95,8 +100,9 @@ def unpack(pwd, input_str_utf8):
         randomiv =input[0:randomiv_len]
         iv =hash(randomiv)[0:iv_len]
         input =input[randomiv_len:]
-        print 'unpack randomiv=', repr(randomiv)
-        print 'unpack iv=', repr(iv)
+        if print_log:
+            print 'unpack randomiv=', repr(randomiv)
+            print 'unpack iv=', repr(iv)
         
         key =hash(salt+pwd)
         decryptor =AES.new(key, AES.MODE_CBC,  iv)
