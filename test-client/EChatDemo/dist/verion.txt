@@ -1,4 +1,4 @@
 {
     "EChat-win" : "0.91",
-    "EChat-osx" : 0.91"
+    "EChat-osx" : "0.91"
 }
