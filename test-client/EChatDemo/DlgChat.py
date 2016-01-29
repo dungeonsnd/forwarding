@@ -324,7 +324,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             else: 
             # 说明长时间没有收到心跳，已经移除了通道信息。但是过段时间又收到了心跳，故认为网络恢复了。
             #   所以考虑容错时重新保存通道信息，但是丢失了原始的 join_time，用当前时间代替。
-                self.all_chids[[chid_utf8]] ={"join_time":timenow,"last_heartbeat_time":timenow}
+                self.all_chids[chid_utf8] ={"join_time":timenow,"last_heartbeat_time":timenow}
                 
             self.lableShow.setText(u'%s 收到来自[%s]心跳'%(self.formatTime(timenow), chid))
         else : # 其它消息
