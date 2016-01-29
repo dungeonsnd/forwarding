@@ -7,6 +7,7 @@ Module implementing DlgChat.
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 import os.path
+import ntplib
 
 from Ui_DlgChat import Ui_Dialog
 
@@ -14,15 +15,43 @@ import zokket
 import time
 import pack
 import urllib2
+import json
+import threading
 
 print_log =False
 send_connected_info =True
-current_version ='0.91'
+current_version ='0.92'  # 当前软件版本
 
 # private
-timesec_send_heartbeat =5  # 发送心跳的间隔
-timesec_check_heartbeat =12  # 检查心跳的间隔
-timesec_heartbeat_timeout =30  # 心跳的超时删除chid的时间
+timesec_send_heartbeat =15  # 发送心跳的间隔
+timesec_check_heartbeat =20  # 检查心跳的间隔
+timesec_heartbeat_timeout =120  # 心跳的超时删除chid的时间
+timesec_ntpsyc =5  # ntp同步间隔
+url_checkupdate ='https://raw.githubusercontent.com/dungeonsnd/forwarding/master/test-client/EChatDemo/dist/verion.txt'
+need_update =False # 是否需要升级
+lastest_version =''  # 最新软件版本
+
+def procCheckUpdateFromGithub():
+    global need_update
+    global lastest_version
+    
+    while True:
+        try:
+            html =urllib2.urlopen( url_checkupdate ).read()
+            d =json.loads(html)
+            if d.has_key('source'):
+                if current_version!=d['source']:
+                    lastest_version =d['source']
+                    need_update =True
+        except :
+            pass
+        need_update =False
+        time.sleep(300)
+
+def startCheckUpdate():   
+    t =threading.Thread(target=procCheckUpdateFromGithub, args=())
+    t.start()
+
 
 class DlgChat(QtGui.QDialog, Ui_Dialog):
     """
@@ -40,6 +69,9 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.chid =''
         self.pwd =''
         self.url ='https://raw.githubusercontent.com/dungeonsnd/myexternalresources/master/rpi_ip_encrypted/ip.txt'
+
+        self.ntp_client =ntplib.NTPClient()
+        self.ntp_delta =0 # local_time+ ntp_delta =ntp_time
         
         self.connected =False
         self.join_time =0
@@ -72,9 +104,29 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.timer.start(1000)
         self.time_count =0
         
+        startCheckUpdate()
+        
     def onTimer(self):
         self.time_count +=1
         
+        # ntp sync
+        if self.time_count%timesec_ntpsyc==0 or self.time_count==1:
+            ntp_url =['cn.ntp.org.cn', 'ntp.sjtu.edu.cn', 'jp.ntp.org.cn']
+            for url in ntp_url:
+                ntp_time =0
+                try:                
+                    ntp_time =self.ntp_client.request(url).tx_time
+                except : #失败后试下一个url
+                    continue
+                else:
+                    self.ntp_delta =ntp_time-self.timeNow()
+                    break
+        
+        # check update
+        if ( self.time_count%3==0 or self.time_count==1 ) and need_update:
+            self.lableShow.setText(u'检测到新版本可用，请升级! 当前版本%s,最新版本%s.'%(current_version.decode('utf-8'), 
+                lastest_version.decode('utf-8')))
+
         # heartbeat
         if self.time_count%timesec_send_heartbeat==0 and self.connected:
             d ={'cmd':'heartbeat','chid':self.chid, 'timenow':self.timeNow()}
@@ -86,14 +138,10 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 join_time =v["join_time"]
                 last_heartbeat_time =v["last_heartbeat_time"]
                 timenow =self.timeNow()
-                if print_log:
-                    print 'onTimer, chid=', i.decode('utf-8')
-                    print 'onTimer, timenow=', timenow
-                    print 'onTimer, last_heartbeat_time=', last_heartbeat_time
                 if timenow-last_heartbeat_time < timesec_heartbeat_timeout:
                     continue
                 del(self.all_chids[i])
-                self.editOutput.append(u'[%s] [系统消息] 长时间未收到 %s (加入时间 %s)的心跳 (最后心跳时间 %s)，已经离开了聊天'%
+                self.editOutput.append(u'[%s] [系统消息] 长时间未收到 %s (加入 %s)的心跳 (最后心跳 %s)'%
                     (self.formatTime(timenow), i.decode('utf-8'), self.formatTime(join_time), self.formatTime(last_heartbeat_time)))
     
     def keyPressEvent(self, e):
@@ -125,10 +173,10 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             event.ignore()
 
     def formatTime(self, timeInt):
-        return time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(timeInt))
+        return time.strftime('%m-%d %H:%M:%S',time.localtime(timeInt))
     def timeNow(self):
-        return time.time()
-    
+        return time.time() +self.ntp_delta # 使用ntp时间， 但是不应该每次都取.
+
     def clearConnectedInfo(self):
         self.connected =False
         self.join_time =0
@@ -274,7 +322,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             if self.all_chids.has_key(chid_utf8):
                 self.all_chids[chid_utf8]["last_heartbeat_time"] =timenow
                 
-            self.lableShow.setText(u'收到心跳 来自[%s] %s'%(self.formatTime(timenow), chid))
+            self.lableShow.setText(u'%s 收到来自[%s]心跳'%(self.formatTime(timenow), chid))
         else : # 其它消息
             flicker =False
 
