@@ -23,8 +23,8 @@ send_connected_info =True
 current_version ='0.92'  # 当前软件版本
 
 # private
-timesec_send_heartbeat =15  # 发送心跳的间隔
-timesec_check_heartbeat =20  # 检查心跳的间隔
+timesec_send_heartbeat =10  # 发送心跳的间隔
+timesec_check_heartbeat =15  # 检查心跳的间隔
 timesec_heartbeat_timeout =120  # 心跳的超时删除chid的时间
 timesec_ntpsyc =5  # ntp同步间隔
 url_checkupdate ='https://raw.githubusercontent.com/dungeonsnd/forwarding/master/test-client/EChatDemo/dist/verion.txt'
@@ -264,8 +264,8 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.sendDic(dic)
 
     def onNewClientJoin(self, chid_utf8, timenow):
-        # 保存新加入的人
-        self.all_chids[chid_utf8] ={"join_time":timenow,"last_heartbeat_time":timenow}            
+        # 保存新加入的人x    
+        self.all_chids[chid_utf8] ={"join_time":timenow,"last_heartbeat_time":self.timeNow()}       
         # 通知新加入的人自己在线
         self.sendDic({'cmd':'already_online_client', 
             'join_time':self.join_time,
