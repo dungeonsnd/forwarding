@@ -7,9 +7,9 @@
 
 ### 二进制可执行程序下载地址
 
-Windows 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/maste/EChat/dist/EChat-win.rar](https://github.com/dungeonsnd/forwarding/raw/maste/EChat/dist/EChat-win.rar)
+Windows 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-win.rar](https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-win.rar)
 
-Mac OSX 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/master//EChat/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master//EChat/dist/EChat-osx.tar.xz)
+Mac OSX 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-osx.tar.xz)
 
 
 ### 等待完成列表  ( TODO List )
