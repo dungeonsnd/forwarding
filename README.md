@@ -16,22 +16,31 @@ A very liteweight tool to forward data over tcp,  written in Go.
 
 forwarding_server 相当于多个"母"接口， forwarding_client 相当于两个"公"接口。 你可以把"母"接口放在公网，把局域网中运行的 forwarding_client 的其中一个"公"接口接到母接口上，另一个"公"接口连上局域网的某个TCP服务，这样就可以在其它网络访问这个局域网的那个TCP服务。注意，这一功能不能用于HTTP透明传输服务，因为forwarding_client只暴露两个"公"接口，而访问某个网站时通常需要很多的公接口。如果要支持HTTP类似的多连接，就需要让 forwarding_client 支持两个以上的"公"接口，也就是需要连接池，作者暂时没有计划去实现该功能。
 
+test-client 目录是简单的测试代码。
 
 具体还能干嘛? 你懂的，嘿嘿 ^=^
 
 
-## 2 示例程序
+## 2 跨平台安全聊天应用 EChatDemo
 
-不要光看src下的主要程式哦，示例程序也有惊喜哦 ^_^
+EChatDemo 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win PC/Mac OSX/Linux Ubuntu/iOS/Android/Terminal** 。它的最高目标是安全性，表现在传输安全、存储安全、终端会话安全三个方面。
 
-比如 test-client/EChatDemo 实现了一个聊天应用，已经可以用于普通文本聊天，图片聊天、文件收发、音视频会议正在开发集成中。服务端使用 src/forwarding_server.go 即可。 如果只是想使用，可以下载可执行程序，目前提供windows和mac两种系统的版本，绿色无污染。
+目前已经可以用于普通文本聊天，图片聊天、文件收发、音视频会议及文件分享功能等正在开发集成中。服务端使用 src/forwarding_server.go 即可。 
+如果只是想使用，可以直接下载可执行程序，目前提供windows和mac两种系统的版本，绿色无污染。
 
 
 可以直接下载二进制程序试玩一下哦:
 
-Windows 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar
+[Windows 最新版下载
+ **https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar**](https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar)
 
-Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz
+[Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz)
+
+
+> 本来只是看看用Python及PyQT来开发一个几乎跨所有平台的简单的应用程序有多简洁，
+> 所以原本就是一个无心之作(总共加起来估计花了三天时间吧)，所以暂时还特别不完善。 但是作者和好友用起来之后发现有点意思，故亦希望有人来参与，使之完善起来。
+> 
+> 如果发现BUG或建议，欢迎提交ISSUE 或者给作者发邮件。 欢迎吐槽，谢谢支持！
 
 
 ## 3 加星
