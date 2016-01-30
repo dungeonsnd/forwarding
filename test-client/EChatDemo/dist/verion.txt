@@ -1,5 +1,0 @@
-{
-    "source" : "0.92",
-    "EChat-win" : "0.92",
-    "EChat-osx" : "0.92"
-}

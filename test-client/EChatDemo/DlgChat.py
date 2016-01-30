@@ -17,17 +17,18 @@ import pack
 import urllib2
 import json
 import threading
+import base64
+import version
 
 print_log =False
 send_connected_info =True
-current_version ='0.92'  # 当前软件版本
 
 # private
 timesec_send_heartbeat =10  # 发送心跳的间隔
 timesec_check_heartbeat =15  # 检查心跳的间隔
 timesec_heartbeat_timeout =120  # 心跳的超时删除chid的时间
 timesec_ntpsyc =60  # ntp同步间隔
-url_checkupdate ='https://raw.githubusercontent.com/dungeonsnd/forwarding/master/test-client/EChatDemo/dist/verion.txt'
+url_checkupdate ='https://raw.githubusercontent.com/dungeonsnd/forwarding/master/test-client/EChatDemo/verion.py'
 need_update =False # 是否需要升级
 lastest_version =''  # 最新软件版本
 
@@ -38,7 +39,7 @@ def procCheckUpdateFromGithub():
         html =urllib2.urlopen( url_checkupdate ).read()
         d =json.loads(html)
         if d.has_key('source'):
-            if current_version!=d['source']:
+            if version.version_source!=d['source']:
                 lastest_version =d['source']
                 need_update =True
     except :
@@ -80,7 +81,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         
         QtGui.QDialog.__init__(self, parent)
         self.setupUi(self)
-        self.setWindowTitle(u'EChat v%s  ----来自开发者小杰 dungeonsnd@gmail.com'%(current_version))
+        self.setWindowTitle(u'EChat v%s  ----来自开发者小杰 dungeonsnd@gmail.com'%(version.version_source))
         self.setWindowFlags(QtCore.Qt.Window)
         self.setWindowFlags(QtCore.Qt.WindowMinimizeButtonHint)
         self.setFixedSize(self.width(), self.height());
@@ -104,6 +105,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.time_count =0
         
         self.threads.append(startCheckUpdate())
+
         
     def onTimer(self):
         self.time_count +=1
@@ -124,7 +126,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         # check update
         if ( self.time_count%10==0 or self.time_count==1 ) :
             if need_update:
-                self.lableShow.setText(u'检测到新版本可用，请升级! 当前版本%s,最新版本%s.'%(current_version.decode('utf-8'), 
+                self.lableShow.setText(u'检测到新版本可用，请升级! 当前版本%s,最新版本%s.'%(version.version_source.decode('utf-8'), 
                 lastest_version.decode('utf-8')))
             
             for t in self.threads:
@@ -271,7 +273,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.sendDic(dic)
 
     def onNewClientJoin(self, chid_utf8, timenow):
-        # 保存新加入的人x    
+        # 保存新加入的人
         self.all_chids[chid_utf8] ={"join_time":timenow,"last_heartbeat_time":self.timeNow()}       
         # 通知新加入的人自己在线
         self.sendDic({'cmd':'already_online_client', 
@@ -368,7 +370,8 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         if len(pwd)<1:
             self.insertEditInfo(u'加密密钥不能为空！');
             return
-        self.pwd =str(pwd.toUtf8())
+        self.pwd =base64.b64encode(str(pwd.toUtf8()))
+        self.editPwd.setText(u'*'*18)
         
         chid =self.editChid.text()
         if len(chid)<1:
@@ -445,11 +448,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
                 'filename':str(s.toUtf8()), 
                 'filesize':str(fsize),  
                 'timenow':self.timeNow()}
-            output =pack.pack(self.pwd, d)
-            if len(output)<1:
-                self.insertEditInfo(u"发送文件失败！");
-            else:
-                self.sock.send(output)
+            self.sendDic(d)
     
     @QtCore.pyqtSignature("")
     def on_btnSetting_clicked(self):
