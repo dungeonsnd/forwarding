@@ -21,9 +21,9 @@ test-client 目录是简单的测试代码。
 具体还能干嘛? 你懂的，嘿嘿 ^=^
 
 
-## 2 跨平台安全聊天应用 EChatDemo
+## 2 跨平台安全聊天应用 EChat
 
-EChatDemo 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win PC/Mac OSX/Linux Ubuntu/iOS/Android/Terminal** 。它的最高目标是安全性，表现在传输安全、存储安全、终端会话安全三个方面。
+EChat 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win PC/Mac OSX/Linux Ubuntu/iOS/Android/Terminal** 。它的最高目标是安全性，表现在传输安全、存储安全、终端会话安全三个方面。
 
 目前已经可以用于普通文本聊天，图片聊天、文件收发、音视频会议及文件分享功能等正在开发集成中。服务端使用 src/forwarding_server.go 即可。 
 如果只是想使用，可以直接下载可执行程序，目前提供windows和mac两种系统的版本，绿色无污染。
