@@ -7,9 +7,9 @@
 
 ### 二进制可执行程序下载地址
 
-Windows 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.tar.xz
+Windows 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/maste/EChat/dist/EChat-win.rar](https://github.com/dungeonsnd/forwarding/raw/maste/EChat/dist/EChat-win.rar)
 
-Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz
+Mac OSX 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/master//EChat/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master//EChat/dist/EChat-osx.tar.xz)
 
 
 ### 等待完成列表  ( TODO List )
@@ -30,6 +30,7 @@ Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test
 
 ### 开发环境
 开发：
+
 Win7 
 Eric6-6.0.5  
 PyQt GPL v4.11.3 for Python 2.7 (x32)
@@ -42,7 +43,7 @@ brew install pyqt
 py2app 
 
 
-### 打包想关的文件
+### 打包相关的文件
 
 dist 是打包工具生成二进制发行包的目录
 py2exe_package.bat 用于WINDOWS环境下打包

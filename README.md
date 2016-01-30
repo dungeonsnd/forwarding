@@ -32,9 +32,9 @@ EChat 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win
 可以直接下载二进制程序试玩一下哦:
 
 [Windows 最新版下载
- **https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar**](https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-win.rar)
+ **https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-win.rar**](https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-win.rar)
 
-[Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz)
+[Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-osx.tar.xz](https://github.com/dungeonsnd/forwarding/raw/master/EChat/dist/EChat-osx.tar.xz)
 
 
 > 本来只是看看用Python及PyQT来开发一个几乎跨所有平台的简单的应用程序有多简洁，
