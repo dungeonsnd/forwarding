@@ -20,7 +20,7 @@ import threading
 import base64
 import version
 
-print_log =False
+print_log =True
 send_connected_info =True
 
 # private
@@ -95,8 +95,6 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         self.insertEditInfo(u"Mac OSX 最新版下载 https://github.com/dungeonsnd/forwarding/raw/master/test-client/EChatDemo/dist/EChat-osx.tar.xz")
         self.insertEditInfo(u"请输入 加密密钥和用户名称，然后单击连接服务，等待连接成功后就可以加入群聊。服务器不填使用默认服务器。")
         self.insertEditInfo(u"注意, 加密密钥必须较长且复杂不易被人猜测到，否则猜到密码就可以加入你的群聊中!  Good day! ")
-
-        self.lableShow.setText(u'暂未连接服务！')
         
         # create timer
         self.timer=QtCore.QTimer()
@@ -172,7 +170,7 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             self.sendDic( { 'cmd':'client_leave',
                 'chid':self.chid,
                 'timenow':self.timeNow() } )
-            if self.sock:
+            if self.sock and self.connected:
                 self.sock.close() 
             event.accept()
             
@@ -187,6 +185,9 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         return time.time() +self.ntp_delta # 使用ntp时间， 但是不应该每次都取.
 
     def clearConnectedInfo(self):
+        print 'clearConnectedInfo, self.sock=', self.sock
+        if self.sock:
+           self.sock =None
         self.connected =False
         self.join_time =0
     
@@ -200,13 +201,13 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         if print_log:
             print 'DlgChat::sendDic=', dic
         output =pack.pack(self.pwd, dic)
-        if len(output)>0 and self.sock:
+        if len(output)>0 and self.sock and self.connected:
             try:                
                 self.sock.send(output)
             except :
                 self.sock.close()
                 self.clearConnectedInfo()
-                self.insertEditInfo(u'服务器已断连，请重新连接服务!');
+                self.insertEditInfo(u'[%s] 服务器已断连，请重新连接服务!'%(self.formatTime(self.timeNow())));
                 return False
             else:
                 return True
@@ -235,13 +236,11 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
 
     def socket_connection_timeout(self, sock, host, port):
         self.clearConnectedInfo()
-        self.insertEditInfo(u'连接服务 %s:%s 超时! ' % (host, port))
+        self.insertEditInfo(u'[%s] 连接服务 %s:%s 超时! ' % (self.formatTime(self.timeNow()), host, port))
 
     def socket_did_connect(self, sock, host, port):
-        self.insertEditInfo(u'已经连接上服务%s:%d  密钥的指纹:%s'%(self.host.decode('utf-8'), 
+        self.insertEditInfo(u'[%s] 已经连接上服务%s:%d  密钥的指纹:%s'%(self.formatTime(self.timeNow()), self.host.decode('utf-8'), 
             self.port,  pack.fingerprintSimple(self.pwd).decode('utf-8') ))
-            
-        self.lableShow.setText(u'已经连接上服务！')
         
         self.connected =True
         timenow =self.timeNow()
@@ -255,6 +254,13 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             'timenow':timenow } )
             self.editOutput.append(u'[%s] [系统消息] 欢迎 %s 加入聊天'%(self.formatTime(timenow), 
                 self.chid.decode('utf-8')))
+                
+    def socket_did_disconnect(self, sock, err=None):
+        print 'socket_did_disconnect, sock=', sock
+        print 'socket_did_disconnect, self.sock=', self.sock
+        self.clearConnectedInfo()
+        self.insertEditInfo(u'[%s] 服务 %s:%s 已断开'% (self.formatTime(self.timeNow()), self.host.decode('utf-8'), self.port))
+        
     def socket_did_secure(self, sock):
         self.insertEditInfo(u'enter socket_did_secure. ')
     
@@ -342,9 +348,6 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
         if flicker:
             QtGui.QApplication.alert(self, 0) # windows任务栏闪烁提醒.   
    
-    def socket_did_disconnect(self, sock, err=None):
-        self.clearConnectedInfo()
-        self.insertEditInfo(u'服务 %s:%s 已断开'% (self.host.decode('utf-8'), self.port))
         
     def getHostFromGithub(self):
         html =urllib2.urlopen( self.url ).read()
@@ -392,14 +395,15 @@ class DlgChat(QtGui.QDialog, Ui_Dialog):
             self.host =''
 
         if len(self.host)<1 or self.port<1 : # Use default.
-            self.insertEditInfo(u"正在获取服务ip, 请稍候...")
+            self.insertEditInfo(u"[%s] 正在获取服务ip, 请稍候..."%(self.formatTime(self.timeNow())))
             try:
                 self.getHostFromGithub()
             except:
-                self.insertEditInfo(u"获取服务地址失败, %s:%d"%(self.host, self.port))
-            else:
-                zokket.TCPSocket(self).connect(host=self.host, port=self.port, timeout=6)
-                self.insertEditInfo(u"正在连接 %s:%d ..."%(self.host, self.port))        
+                self.insertEditInfo(u"[%s] 获取服务地址失败, %s:%d"%(self.formatTime(self.timeNow()), self.host, self.port))
+                
+        if len(self.host)>0 and self.port>0 : 
+                zokket.TCPSocket(self).connect(host=self.host, port=self.port, timeout=12)
+                self.insertEditInfo(u"[%s] 正在连接 %s:%d ..."%(self.formatTime(self.timeNow()), self.host, self.port))        
                 self.btnConnectSvr.enable =False;
     
     
