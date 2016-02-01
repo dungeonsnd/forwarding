@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 var (
@@ -110,6 +111,7 @@ func Accepter(listenAddr string, hsPwd string, mode string) {
 			log.Println(err)
 			continue
 		}
+		conn.SetDeadline(time.Now().Add(time.Duration(30) * time.Second))
 
 		inputChid := ""
 		if mode == "broadcast" {
@@ -200,6 +202,7 @@ func Handler(conn net.Conn, hsPwd string, inputChid string) {
 			removeConnQ <- chid
 			break
 		}
+		conn.SetDeadline(time.Now().Add(time.Duration(120) * time.Second))
 		log.Println("Read data:", string(data[:n]))
 		sendQ <- SendQEle{chid, bytes.NewBuffer(data[:n])}
 	}
