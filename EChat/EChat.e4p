@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project EChat -->
-<!-- Saved: 2016-01-14, 14:34:08 -->
+<!-- Saved: 2016-02-01, 14:52:21 -->
 <!-- Copyright (C) 2016 jef, dungeonsnd@gmail.com -->
 <Project version="5.1">
   <Language></Language>
@@ -14,10 +14,11 @@
   <Email>dungeonsnd@gmail.com</Email>
   <Eol index="1"/>
   <Sources>
-    <Source>__init__.py</Source>
-    <Source>Ui_DlgChat.py</Source>
     <Source>DlgChat.py</Source>
     <Source>EChat.py</Source>
+    <Source>EChat.pyw</Source>
+    <Source>Ui_DlgChat.py</Source>
+    <Source>__init__.py</Source>
     <Source>pack.py</Source>
   </Sources>
   <Forms>
