@@ -17,7 +17,10 @@ Mac OSX 最新版下载 [https://github.com/dungeonsnd/forwarding/raw/master/ECh
 * 重连有问题。 MAC版本过几个小时显示连接已断开，这里重连连不上了。测试发现，重连时服务端显示连接上了，但是端上没进入连接成功回调，而是过一会进入连接超时回调。怀疑是 zokket问题，有待解决。
 Win版本过一段时间也会显示连接断开，但是可以直接点击界面上的重连连上服务器。
 
-* 把网络相关的部分独立出来 （工作量：小）
+写了测试程序放在 test目录下，发现 win7下本机tcp server没启 zokket with qt 客户端也进入了连接成功的回调，而 zokket with tcp 的客户端直接抛异常退出了,没有进入 socket_did_disconnect 和 socket_connection_timeout 回调。
+
+
+* 把网络相关的部分独立出来. 启检测线程用于给自己另外一个连接(数据连接)发心跳，短连接10秒一次。数据连接一段时间内(40秒)没有收到心跳就重连服务。（工作量：中）
 * 文件收发支持 （小）
 * Ubuntu下打包成执行程序 （中）
 * UPnP及p2p支持 （大）
