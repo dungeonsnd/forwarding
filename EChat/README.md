@@ -2,7 +2,7 @@
 
 ### EChat   是一个群聊客户端
 使用AES加密聊天内容，基本功能初步完成。可以使用默认服务，在客户端的服务器一栏不填即可，这时使用作者的一个树莓派单板机作为服务器。 另外，你也可以自己启一个服务， 服务端请使用
- [https://github.com/dungeonsnd/forwarding/blob/master/src/forwarding_server.go](https://github.com/dungeonsnd/forwarding/blob/master/src/forwarding_server.go)  ，可运行于WIN/OSX/LINUX。注意如果不用默认服务而是自己启 forwarding_server或者自己重新实现服务端的话，它需要在公网启动，或者在内网启动后做端口映射以便其它客户端可以访问。
+ [https://github.com/dungeonsnd/forwarding/blob/master/forwarding/forwarding_server.go](https://github.com/dungeonsnd/forwarding/blob/master/src/forwarding_server.go)  ，可运行于WIN/OSX/LINUX。注意如果不用默认服务而是自己启 forwarding_server或者自己重新实现服务端的话，它需要在公网启动，或者在内网启动后做端口映射以便其它客户端可以访问。
 
 
 ### 二进制可执行程序下载地址
