@@ -71,20 +71,20 @@ EChat 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win
 > 
 >   
 > 
-
-
-// Simple crypto protocol
-// version:0x00
-//
-// Handshaking:
-// [Body length(4 Bytes)]
-//
-// After handshake:
-// [Body length(4 Bytes)] + [Encrypted data]
-//
-// Using crypto algorithm:
-// RSA-2048, rsa.EncryptOAEP, rsa.SignPSS, ripemd160, SHA-256, AES-256-CTR, pbkdf2.Key
-//
+>  
+>  
+>   Simple crypto protocol
+>   version:0x00
+>  
+>   Handshaking:
+>   [Body length(4 Bytes)]
+>  
+>   After handshake:
+>   [Body length(4 Bytes)] + [Encrypted data]
+>  
+>   Using crypto algorithm:
+>   RSA-2048, rsa.EncryptOAEP, rsa.SignPSS, ripemd160, SHA-256, AES-256-CTR, pbkdf2.Key
+>  
 
 
 
