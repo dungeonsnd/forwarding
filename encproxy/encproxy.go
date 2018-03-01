@@ -5,20 +5,6 @@
 // 功能: 在两台计算机之间建立双向认证的加密网络连接.
 //
 //
-//
-// 使用举例:
-// 通过 encproxy ，使 realvnc/vnc-viewer 从远端连接到家里 realvnc/vnc-server，所有数据经过 encproxy 进行加密传输.
-//
-// 步骤 1) 家里 vnc-server 启动端口为 5900.   在本机启动 encproxy 服务端 (mode=2), agree=1 表示自动同意未知指纹.
-//         go run encproxy.go -listen :9001 -connect 127.0.0.1:5900 -mode 2 -agree 1
-// 步骤 2) 在远端机启动 encproxy 客户端(mode=1), agree=0 表示未知指纹时需要用户手动同意.
-//         go run encproxy.go -listen :7700 -connect [home ip address]:9001 -mode 1 -agree 0
-// 步骤 3) 在远端启动 realvnc/vnc-viewer，连接 127.0.0.1:7700
-//
-
-//
-//  
-//
 // 这个程序是模仿 openpgp 和 tls 协议来写的一个简单的加密代理，演示了在不安全信道上建立安全通信通道的常见方法。
 // 本来只是想学习研究和自用的，但是发现可用性和性能还可以。于是分享出来供交流和把玩。 但是本程序的安全性和稳定性没有经过认真设计和验证，所以肯定没有 openpgp和tls 安全性高，请不要把本程序用于安全性要求较高的环境。
 //  由于历史原因，代码使用了我的另一项目中的现成结构(可以从任一连接发送数据到任意连接上)，所以可能复杂性高一些。其实 proxy-client(或proxy-server)端一个 gorutine 收数据->解密->发给调用者，一个 gorutine 收数据->加密->发给proxy-server， 这样的结构对于本程序来说，可能更简单明了一些。
@@ -30,6 +16,20 @@
 // 4) 增加其它语言平台的支持，如 iOS/OC , java/Android 平台。
 // 
 //
+//
+//
+// 使用举例:
+// 通过 encproxy ，使 realvnc/vnc-viewer 从远端连接到家里 realvnc/vnc-server，所有数据经过 encproxy 进行加密传输.
+//
+// 步骤 1) 家里 vnc-server 启动端口为 5900.   在本机启动 encproxy 服务端 (mode=2), agree=1 表示自动同意未知指纹.
+//         go run encproxy.go -listen :9001 -connect 127.0.0.1:5900 -mode 2 -agree 1
+// 步骤 2) 在远端机启动 encproxy 客户端(mode=1), agree=0 表示未知指纹时需要用户手动同意.
+//         go run encproxy.go -listen :7700 -connect [home ip address]:9001 -mode 1 -agree 0
+// 步骤 3) 在远端启动 realvnc/vnc-viewer，连接 127.0.0.1:7700
+//
+//  
+//
+
 
 // Simple crypto protocol
 // version:0x00
