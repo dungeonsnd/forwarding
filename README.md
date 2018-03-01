@@ -41,12 +41,59 @@ EChat 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win
 > 如果发现BUG或建议，欢迎提交ISSUE 或者给作者发邮件。 欢迎吐槽，谢谢支持！
 
 
-## 3 加星
+## 3 支持双向认证的加密代理程序 encproxy
+// version: 0.1
+//
+// 功能: 在两台计算机之间建立双向认证的加密网络连接.
+//
+//
+// 这个程序是模仿 openpgp 和 tls 协议来写的一个简单的加密代理，演示了在不安全信道上建立安全通信通道的常见方法。
+// 本来只是想学习研究和自用的，但是发现可用性和性能还可以。于是分享出来供交流和把玩。 但是本程序的安全性和稳定性没有经过认真设计和验证，所以肯定没有 openpgp和tls 安全性高，请不要把本程序用于安全性要求较高的环境。
+//  由于历史原因，代码使用了我的另一项目中的现成结构(可以从任一连接发送数据到任意连接上)，所以可能复杂性高一些。其实 proxy-client(或proxy-server)端一个 gorutine 收数据->解密->发给调用者，一个 gorutine 收数据->加密->发给proxy-server， 这样的结构对于本程序来说，可能更简单明了一些。
+//
+// 本程序功能基本可用了，但是还有几个特性没有完成:
+// 1) 指纹 fingerprint 需要存储在磁盘中，以便下次连接请求到来时直接验证。避免每次提醒用户未知指纹.
+// 2) 需要完成 nickname 的加密和交换, 并且 nickname 中需要放入加密的hash(nickname)。 以便握手双方可以验证协商出来的会话密钥是否一致。
+// 3) 需要一个 UI 前端，对用户更友好一些。所以本程序也要增加 RPC 功能来与UI程序交互。
+// 4) 增加其它语言平台的支持，如 iOS/OC , java/Android 平台。
+// 
+//
+//
+//
+// 使用举例:
+// 通过 encproxy ，使 realvnc/vnc-viewer 从远端连接到家里 realvnc/vnc-server，所有数据经过 encproxy 进行加密传输.
+//
+// 步骤 1) 家里 vnc-server 启动端口为 5900.   在本机启动 encproxy 服务端 (mode=2), agree=1 表示自动同意未知指纹.
+//         go run encproxy.go -listen :9001 -connect 127.0.0.1:5900 -mode 2 -agree 1
+// 步骤 2) 在远端机启动 encproxy 客户端(mode=1), agree=0 表示未知指纹时需要用户手动同意.
+//         go run encproxy.go -listen :7700 -connect [home ip address]:9001 -mode 1 -agree 0
+// 步骤 3) 在远端启动 realvnc/vnc-viewer，连接 127.0.0.1:7700
+//
+//  
+//
+
+
+// Simple crypto protocol
+// version:0x00
+//
+// Handshaking:
+// [Body length(4 Bytes)]
+//
+// After handshake:
+// [Body length(4 Bytes)] + [Encrypted data]
+//
+// Using crypto algorithm:
+// RSA-2048, rsa.EncryptOAEP, rsa.SignPSS, ripemd160, SHA-256, AES-256-CTR, pbkdf2.Key
+//
+
+
+
+## 4 加星
 
 喜欢的一定要给个 star 啊， 求星星， 求赞!   阁下的支持是作者们最大的动力!
 
 
-## 4 author
+## 5 author
 
 author: jeffery
 
