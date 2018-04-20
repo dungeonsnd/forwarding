@@ -155,6 +155,7 @@ func main() {
 
 	log.Printf("------------------------------------------------- \n\n\n")
 	log.Printf("Program Started. listen:%v, connect:%v, mode:%v, connectorCount:%v \n\n", *listen, *connect, *mode, *connectorCount)
+    showMyFingerPrint()
 
     if *connectorCount>0 {
         maxNetowrkConnections = *connectorCount * 2
@@ -188,6 +189,17 @@ func main() {
                 }
         }
     }
+}
+
+func showMyFingerPrint() {
+    // 生成或读取我的公钥
+    ret, _, myPublicKeyBuf :=getMyPublicKey()
+    if !ret {
+        return
+    }
+        
+    fingerprint := calFingerPrint(myPublicKeyBuf)
+    log.Printf("\n********************************************************\nMy fingerprint is:\n%v\n********************************************************\n", fingerprint)
 }
 
 // Dispatcher 管理所有客户端连接信息； 发送数据
@@ -497,7 +509,7 @@ func verifingPeerVersion(recved []byte) (bool){
 }
 
 
-func getMyPublicKey() (bool, * rsa.PrivateKey, []byte){    
+func getMyPublicKey() (bool, * rsa.PrivateKey, []byte) {    
     priFileName := "mypri.key"
     mypriBuf, err := contentOfFile(priFileName)
     var myPrivateKey * rsa.PrivateKey
@@ -552,27 +564,39 @@ func calFingerPrint(peerPubBuf []byte) (string) {
 func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (bool, * rsa.PublicKey) {
     fingerPrint := calFingerPrint(peerPubBuf)
     whitelistFileName := "whitelist.txt"
-    _, err := contentOfFile(whitelistFileName)
-    if err != nil {
+    whiteFingerListByte, err := contentOfFile(whitelistFileName) 
+
+    isInWhiteList :=false
+    if err == nil {
+        s := string(whiteFingerListByte[:])
+        s1 :=strings.Trim(s, "\r")
+        whiteFingerListArr := strings.Split(s1, "\n")
+
+        for _, w := range whiteFingerListArr {
+            if (strings.EqualFold(strings.ToLower(w), strings.ToLower(fingerPrint))) {
+                isInWhiteList =true
+                fmt.Printf("######## Whitelist Fignerprint, Accept. 指纹在白名单中,允许连接.:\n%v\n", fingerPrint)
+            }
+        }
+    }
+
+    if false==isInWhiteList && err != nil {
     
         if autoAgreeUnknowFingerprint {
-            fmt.Printf("######## 未知指纹:\n%v\n******** 允许连接\n", fingerPrint)
+            fmt.Printf("######## Unkown Fignerprint. 未知指纹:\n%v\n******** Accepted. 允许连接\n", fingerPrint)
         } else {
-            fmt.Printf("######## 未知指纹:\n%v\n******** 是否允许连接, Y/N ? \n", fingerPrint)
+            fmt.Printf("######## Unkown Fignerprint. 未知指纹:\n%v\n******** Accept or Not? 是否允许连接? Y/N ? \n", fingerPrint)
             yesorno :=""
             fmt.Scanln(&yesorno)
             if yesorno!="Y" && yesorno!="y" {
                 return false, nil
             }
         }
-        
-        
-// TODO: write to file.        
-//        s := fmt.Sprintf("%s\n", fingerPrint) // TODO: json format.
-//        err = appendToFile(whitelistFileName, s[:])
-//        if err != nil {
-//            return false, nil
-//        }
+
+        err = appendToFile(whitelistFileName, []byte(fingerPrint))  // TODO: json format.
+        if err != nil {
+            return false, nil
+        }
     }
     
     peerPublicKey, err := x509.ParsePKCS1PublicKey(peerPubBuf)
@@ -818,7 +842,8 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
             return
         }
         ctx.handshakeStep = handshakeStepSucessfully
-        log.Printf("#### @@@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
+        // log.Printf("#### @@@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
+        log.Printf("#### @@@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         
     } else {
         log.Printf("#### ???? handshakeStepFailed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
