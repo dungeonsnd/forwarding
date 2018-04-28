@@ -323,13 +323,13 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
                 }
                 return timer.C
             }():
-                log.Printf("netowrkConnectionsCountUpdatedQ TIMEOUT, connectionsCount{%v}, max:%v \n\n",
+                log.Printf("netowrkConnectionsCountUpdatedQ timer, connectionsCount{%v}, max:%v \n\n",
                     currentNetowrkConnectionsCount, maxNetowrkConnections)
                 stop = true
                 break
 
             case currentNetowrkConnectionsCount = <- netowrkConnectionsCountUpdatedQ:
-                log.Printf("chan of netowrkConnectionsCountUpdatedQ RECVED, connectionsCount{%v}, maxCount:%v \n\n",
+                log.Printf("chan of netowrkConnectionsCountUpdatedQ recved, connectionsCount{%v}, maxCount:%v \n\n",
                     currentNetowrkConnectionsCount, maxNetowrkConnections)
             }
 
@@ -565,33 +565,42 @@ func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (boo
     fingerPrint := calFingerPrint(peerPubBuf)
     whitelistFileName := "whitelist.txt"
     whiteFingerListByte, err := contentOfFile(whitelistFileName) 
-
+        
     isInWhiteList :=false
     if err == nil {
         s := string(whiteFingerListByte[:])
-        s1 :=strings.Trim(s, "\r")
-        whiteFingerListArr := strings.Split(s1, "\n")
+        whiteFingerListArr := strings.Split(s, "\n")
 
+        fmt.Printf("\nWhite Fingers :\n")
         for _, w := range whiteFingerListArr {
-            if (strings.EqualFold(strings.ToLower(w), strings.ToLower(fingerPrint))) {
+            w1 :=strings.TrimSpace(w)
+            fmt.Printf("%v\n", w1)
+        }
+        fmt.Printf("\n")
+        
+        for _, w := range whiteFingerListArr {
+            w1 :=strings.TrimSpace(w)
+        
+            if (strings.EqualFold(strings.ToLower(w1), strings.ToLower(fingerPrint))) {
                 isInWhiteList =true
-                fmt.Printf("######## Whitelist Fignerprint, Accept. 指纹在白名单中,允许连接.:\n%v\n", fingerPrint)
+                fmt.Printf("########## Whitelist Fignerprint, Accept. 指纹在白名单中,允许连接.:\n%v\n\n", fingerPrint)
             }
         }
     }
 
-    if false==isInWhiteList && err != nil {
+    if false==isInWhiteList {
     
         if autoAgreeUnknowFingerprint {
-            fmt.Printf("######## Unkown Fignerprint. 未知指纹:\n%v\n******** Accepted. 允许连接\n", fingerPrint)
+            fmt.Printf("########## Unkown Fignerprint. 未知指纹:\n%v\n******** Already Config Auto-Accepted. 已配置自动允许连接\n\n\n", fingerPrint)
         } else {
-            fmt.Printf("######## Unkown Fignerprint. 未知指纹:\n%v\n******** Accept or Not? 是否允许连接? Y/N ? \n", fingerPrint)
+            fmt.Printf("########## Unkown Fignerprint. 未知指纹:\n%v\n******** Accept or Not? 是否允许连接? Y/N ? \n", fingerPrint)
             yesorno :=""
             fmt.Scanln(&yesorno)
             if yesorno!="Y" && yesorno!="y" {
                 return false, nil
             }
         }
+        fmt.Printf("\n\n\n")
 
         err = appendToFile(whitelistFileName, []byte(fingerPrint))  // TODO: json format.
         if err != nil {
@@ -716,7 +725,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
 
     if handshakeStepWillSendMyVersion==ctx.handshakeStep {  
         // 发送我的版本号
-        log.Printf("#### handshakeStepWillSendMyVersion, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWillSendMyVersion, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ret, myVersion := getMyVersion()
         if !ret {
             ctx.handshakeStep = handshakeStepFailed
@@ -730,7 +739,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
         
     } else if handshakeStepWaitPeerVersion==ctx.handshakeStep {  
         // 检查对方版本号
-        log.Printf("#### handshakeStepWaitPeerVersion, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerVersion, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         if false==verifingPeerVersion(data[:bodyLen]) {
             ctx.handshakeStep =handshakeStepFailed
             return
@@ -751,7 +760,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
 
     } else if handshakeStepWaitPeerPublicKey==ctx.handshakeStep {
         // 验证对方公钥
-        log.Printf("#### handshakeStepWaitPeerPublicKey, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerPublicKey, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ret, peerPublickKey := checkPeerPublicKey(data[:bodyLen], autoAgreeUnknowFingerprint)
         if !ret {
             ctx.handshakeStep = handshakeStepFailed
@@ -769,7 +778,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
 
     } else if handshakeStepWaitPeerRandomDataToSign==ctx.handshakeStep {
         // 收到对方的随机数据, 用自己私钥签名后发给对方.
-        log.Printf("#### handshakeStepWaitPeerRandomDataToSign, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerRandomDataToSign, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ctx.peerRandomDataToSign = make([]byte, len(data[:bodyLen]))
         copy(ctx.peerRandomDataToSign, data[:bodyLen])
         ret, signedData := signPeerRandomData(ctx.peerRandomDataToSign, ctx.myPrivateKey)
@@ -786,7 +795,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
     
     }  else if handshakeStepWaitPeerSignedData==ctx.handshakeStep {
         // 用对方公钥来验证随机数的签名,无误后生成随机种子发给对方
-        log.Printf("#### handshakeStepWaitPeerSignedData, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerSignedData, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ret := verifingPeerSignedData(data[:bodyLen], ctx.peerPublickKey, ctx.myRandomDataToSign)
         if !ret {
             ctx.handshakeStep = handshakeStepFailed
@@ -808,7 +817,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
     
     } else if handshakeStepWaitPeerRandomSeed==ctx.handshakeStep {
         // 生成会话密钥
-        log.Printf("#### handshakeStepWaitPeerRandomSeed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerRandomSeed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         
         ret, peerRandomSeed := decPeerRandomSeed(ctx.myPrivateKey, data[:bodyLen])
         if !ret {
@@ -835,18 +844,18 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
     
     } else if handshakeStepWaitPeerNickname==ctx.handshakeStep {
         // 验证对方的昵称. 无误后握手成功.
-        log.Printf("#### handshakeStepWaitPeerNickname, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerNickname, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ret := verifingPeerNickname(data[:bodyLen], ctx.sessionKey)
         if !ret {
             ctx.handshakeStep = handshakeStepFailed
             return
         }
         ctx.handshakeStep = handshakeStepSucessfully
-        // log.Printf("#### @@@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
-        log.Printf("#### @@@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        // log.Printf("##@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
+        log.Printf("##@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         
     } else {
-        log.Printf("#### ???? handshakeStepFailed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("##?? handshakeStepFailed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ctx.handshakeStep = handshakeStepFailed
     }
 
@@ -880,7 +889,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
         }
     }
         
-    log.Printf("ENTER readAndSendDataLoop, chid:%v(%v), mode:%v, isServer:%v\n\n",
+    log.Printf("ENTER readAndSendDataLoop, recving data. chid:%v(%v), mode:%v, isServer:%v\n\n",
         chid, conn.RemoteAddr(), mode, isServer)
 
     var ctx handshakeContext
