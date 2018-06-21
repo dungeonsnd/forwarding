@@ -148,12 +148,13 @@ var netowrkConnectionsCountUpdatedQ = make(chan int, 1024)    // 网络连接数
 func main() {
 	flag.Parse()
 
+	log.Printf("---------------------- Usage examples: ---------------------- \n")
 	//  go run EchoServer.go 5900
-	log.Printf("e.g. of Mode 2 (Target):  go run encproxy.go -listen :9001 -connect 127.0.0.1:5900 -mode 2 -count 100 -agree 1 \n\n")
+	log.Printf("e.g. of Mode 2 (Target):  go run encproxy.go -listen :9001 -connect 127.0.0.1:5900 -mode 2 -count 100 -agree 1 \n")
 	log.Printf("e.g. of Mode 1 (Source):  go run encproxy.go -listen :7700 -connect [home ip address]:9001 -mode 1 -count 100 -agree 0 \n")
 	//  telnet 127.0.0.1 7700
 
-	log.Printf("------------------------------------------------- \n\n\n")
+	log.Printf("============================================================= \n\n\n")
 	log.Printf("Program Started. listen:%v, connect:%v, mode:%v, connectorCount:%v \n\n", *listen, *connect, *mode, *connectorCount)
     showMyFingerPrint()
 
@@ -199,7 +200,7 @@ func showMyFingerPrint() {
     }
         
     fingerprint := calFingerPrint(myPublicKeyBuf)
-    log.Printf("\n********************************************************\nMy fingerprint is:\n%v\n********************************************************\n", fingerprint)
+    log.Printf("#### My fingerprint is:\n%v\n\n", fingerprint)
 }
 
 // Dispatcher 管理所有客户端连接信息； 发送数据
@@ -223,7 +224,7 @@ func Dispatcher() {
 			for {
 				n, err := recverInfo.conn.Write(sendQEle.data.Bytes())
 				if err != nil {
-					log.Printf("Write data length: %v to: %v(%v) ERROR: %v \n\n",
+					log.Printf("Write %vB to %v(%v) ERROR: %v \n\n",
 						nTotal, recverInfo.chid, recverInfo.conn.RemoteAddr(), err)
 					break
 				} else {
@@ -247,14 +248,14 @@ func Dispatcher() {
 			for {
 				n, err := senderInfo.conn.Write(sendQEle.data.Bytes())
 				if err != nil {
-					log.Printf("Write data length: %v to: %v(%v) ERROR: %v \n\n",
+					log.Printf("Write %vB to %v(%v) ERROR: %v \n\n",
 						nTotal, senderInfo.chid, senderInfo.conn.RemoteAddr(), err)
 					break
 				} else {
 					nWritten += n
 					if nWritten == nTotal {
-						log.Printf("<<== Write data length: %v to: %v(%v) \n\n",
-							nTotal, senderInfo.chid, senderInfo.conn.RemoteAddr())
+						log.Printf("<== Write %vB to %v (%v->%v) \n\n",
+							nTotal, senderInfo.chid, senderInfo.conn.LocalAddr(), senderInfo.conn.RemoteAddr())
 						break
 					}
 				}
@@ -262,8 +263,8 @@ func Dispatcher() {
 
 		case connInfo := <-createConnQ: // 接收到连接创建通知时，创建连接信息。                    
 			connMap[connInfo.chid] = connInfo
-			log.Printf("Create connection: %v(%v) [%v] \n\n",
-				connInfo.chid, connInfo.conn.RemoteAddr(), connInfo.anotherChid)
+			log.Printf("Create connection: %v(%v=%v) [%v] \n\n",
+				connInfo.chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr(), connInfo.anotherChid)
 
             netowrkConnectionsCountUpdatedQ <- len(connMap)
 
@@ -272,7 +273,7 @@ func Dispatcher() {
 			if !found {
 				continue
 			}
-            log.Printf("Close connection: %v(%v) \n\n", chid, connInfo.conn.RemoteAddr())
+            log.Printf("Now close connection: %v(%v=%v) \n\n", chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr())
             connInfo.conn.Close()
             delete(connMap, chid)
 
@@ -281,7 +282,8 @@ func Dispatcher() {
 			if !found {
 				continue
 			}
-            log.Printf("Close anotherConnInfo: %v(%v) \n\n", anotherConnInfo.chid, anotherConnInfo.conn.RemoteAddr())
+            log.Printf("Now close anotherConnInfo: %v(%v=%v) \n\n", 
+            	anotherConnInfo.chid, anotherConnInfo.conn.LocalAddr(), anotherConnInfo.conn.RemoteAddr())
 			anotherConnInfo.conn.Close()
             delete(connMap, anotherConnInfo.chid)
 
@@ -347,7 +349,7 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
         } else {
             serverChid := genNewChid()
             clientChid := genNewChid()
-            log.Printf("Accept from %v(%v) \n\n", serverChid, serverConn.RemoteAddr())
+            log.Printf("Accept from %v(%v=%v) \n\n", serverChid, serverConn.LocalAddr(), serverConn.RemoteAddr())
 
             var signalHandshakeOverQ = make(chan string, 16)    // 握手结果信号, len(str)>1时表示pwd, 否则表示握手失败.
             var signalMode2ToStartConnectQ = make(chan bool, 16)    // 握手即将结束信号
@@ -383,7 +385,7 @@ func clientHandler(connect string, serverConn net.Conn, serverChid string, clien
 	defer clientConn.Close()
     SetReadTimeout(serverConn, 60*60)
 
-	log.Printf("Connected to %v(%v) \n\n", clientChid, clientConn.RemoteAddr())
+	log.Printf("Connected to %v(%v=%v) \n\n", clientChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 	createConnQ <- &connInfo{clientConn, clientChid, 60 * 15, serverChid}
     
 	readAndSendDataLoop(clientConn, clientChid, false, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
@@ -410,9 +412,9 @@ func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (i
     header, err := ReadData(conn, 4)
     if err != nil {            // 关闭时给 Dispatcher 发送通知
         if err == io.EOF || err == io.ErrUnexpectedEOF{
-            log.Printf("Connection %v(%v) closed! error: %v \n\n", chid, conn.RemoteAddr(), err)
+            log.Printf("Connection %v(%v=%v) closed! error: %v \n\n", chid, conn.LocalAddr(), conn.RemoteAddr(), err)
         } else {
-            log.Printf("Read from %v(%v) error: %v \n\n", chid, conn.RemoteAddr(), err)
+            log.Printf("Read from %v(%v=%v) error: %v \n\n", chid, conn.LocalAddr(), conn.RemoteAddr(), err)
         }
         removeConnQ <- chid
         return 0, err
@@ -421,8 +423,8 @@ func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (i
     // Calculate bodyLen
     bodyLen, err :=BytesToInt32(header[0:4])
     if err != nil || bodyLen<0 || bodyLen>1024*1024*64 {
-        log.Printf("BytesToInt32 error. bodyLen=%v. Close connection %v(%v)! error: %v \n\n", 
-                    bodyLen, chid, conn.RemoteAddr(), err)
+        log.Printf("BytesToInt32 error. bodyLen=%v. Close connection %v(%v=%v)! error: %v \n\n", 
+                    bodyLen, chid, conn.LocalAddr(), conn.RemoteAddr(), err)
         removeConnQ <- chid
         return 0, err
     }
@@ -435,9 +437,9 @@ func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (i
     err = ReadData2(conn, data, (int)(bodyLen))
     if err != nil {
         if err == io.EOF {
-            log.Printf("Connection %v(%v) closed! \n\n", chid, conn.RemoteAddr())
+            log.Printf("Connection %v(%v=%v) closed! \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
         } else {
-            log.Printf("Read from %v(%v) error: %v \n\n", chid, conn.RemoteAddr(), err)
+            log.Printf("Read from %v(%v=%v) error: %v \n\n", chid, conn.LocalAddr(), conn.RemoteAddr(), err)
         }
         removeConnQ <- chid
         return 0, err
@@ -450,9 +452,9 @@ func readFullDataOnUnencryptedSession(conn net.Conn, chid string, data []byte) (
     bodyLen, err := conn.Read(data) // 读出数据，放入 Dispatcher 的发送队列
     if err != nil {           // 关闭时给 Dispatcher 发送通知
         if err == io.EOF {
-            log.Printf("Connection %v(%v) closed! \n\n", chid, conn.RemoteAddr())
+            log.Printf("Connection %v(%v=%v) closed! \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
         } else {
-            log.Printf("Read from %v(%v) error: %v \n\n", chid, conn.RemoteAddr(), err)
+            log.Printf("Read from %v(%v=%v) error: %v \n\n", chid, conn.LocalAddr(), conn.RemoteAddr(), err)
         }
         removeConnQ <- chid
         return 0, err
@@ -583,7 +585,7 @@ func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (boo
         
             if (strings.EqualFold(strings.ToLower(w1), strings.ToLower(fingerPrint))) {
                 isInWhiteList =true
-                fmt.Printf("########## Whitelist Fignerprint, Accept. 指纹在白名单中,允许连接.:\n%v\n\n", fingerPrint)
+                fmt.Printf("#### Whitelist Fignerprint, Accept. 指纹在白名单中,允许连接.:\n%v\n\n\n", fingerPrint)
             }
         }
     }
@@ -591,9 +593,9 @@ func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (boo
     if false==isInWhiteList {
     
         if autoAgreeUnknowFingerprint {
-            fmt.Printf("########## Unkown Fignerprint. 未知指纹:\n%v\n******** Already Config Auto-Accepted. 已配置自动允许连接\n\n\n", fingerPrint)
+            fmt.Printf("#### Unkown Fignerprint. 未知指纹:\n%v\n******** Already Config Auto-Accepted. 已配置自动允许连接\n\n\n", fingerPrint)
         } else {
-            fmt.Printf("########## Unkown Fignerprint. 未知指纹:\n%v\n******** Accept or Not? 是否允许连接? Y/N ? \n", fingerPrint)
+            fmt.Printf("#### Unkown Fignerprint. 未知指纹:\n%v\n******** Accept or Not? 是否允许连接? Y/N ? \n", fingerPrint)
             yesorno :=""
             fmt.Scanln(&yesorno)
             if yesorno!="Y" && yesorno!="y" {
@@ -760,7 +762,7 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
 
     } else if handshakeStepWaitPeerPublicKey==ctx.handshakeStep {
         // 验证对方公钥
-        log.Printf("## handshakeStepWaitPeerPublicKey, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("## handshakeStepWaitPeerPublicKey, chid=%v, handshakeStep=%v \n", chid, ctx.handshakeStep)
         ret, peerPublickKey := checkPeerPublicKey(data[:bodyLen], autoAgreeUnknowFingerprint)
         if !ret {
             ctx.handshakeStep = handshakeStepFailed
@@ -851,11 +853,11 @@ func handshakeProcess(chid string, data []byte, bodyLen int, ctx * handshakeCont
             return
         }
         ctx.handshakeStep = handshakeStepSucessfully
-        // log.Printf("##@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
-        log.Printf("##@@ handshakeStepSucessfully, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        // log.Printf("#### handshakeStepSucessfully, chid=%v, handshakeStep=%v, sessionKey=%v \n\n", chid, ctx.handshakeStep, ctx.sessionKey)
+        log.Printf("###### handshakeStepSucessfully, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         
     } else {
-        log.Printf("##?? handshakeStepFailed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
+        log.Printf("######?? handshakeStepFailed, chid=%v, handshakeStep=%v \n\n", chid, ctx.handshakeStep)
         ctx.handshakeStep = handshakeStepFailed
     }
 
@@ -889,8 +891,8 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
         }
     }
         
-    log.Printf("ENTER readAndSendDataLoop, recving data. chid:%v(%v), mode:%v, isServer:%v\n\n",
-        chid, conn.RemoteAddr(), mode, isServer)
+    log.Printf("readAndSendDataLoop, recving data. chid:%v(%v=%v), mode:%v, isServer:%v\n\n",
+        chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
 
     var ctx handshakeContext
     encryptedSession := (mode == "1" && isServer == false) || (mode == "2" && isServer)
@@ -919,8 +921,8 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
             }
             
             if handshakeStepSucessfully!=ctx.handshakeStep {
-                log.Printf("==>> Read handshake bodyLen:%v from %v(%v), mode:%v, isServer:%v\n\n",
-                    bodyLen, chid, conn.RemoteAddr(), mode, isServer)
+                log.Printf("==> Read handshake %vB from %v(%v->%v), mode:%v, isServer:%v\n\n",
+                    bodyLen, chid, conn.RemoteAddr(), conn.LocalAddr(), mode, isServer)
                     
                 handshakeProcess(chid, data, bodyLen, &ctx, autoAgreeUnknowFingerprint)
 
@@ -964,13 +966,13 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
         }
                 
         if bodyLen <= 0 {
-            log.Printf("bodyLen=%v \n\n", bodyLen)
+            log.Printf("bodyLen=%v, %v(%v=%v) \n\n", bodyLen, chid, conn.LocalAddr(), conn.RemoteAddr())
             continue
         }
         recved := data[:bodyLen]
         
-//        log.Printf("==>> Read data length:%v from %v(%v), mode:%v, isServer:%v\n\n",
-//            len(recved), chid, conn.RemoteAddr(), mode, isServer)
+        // log.Printf("==> Read data length:%v from %v(%v), mode:%v, isServer:%v\n\n",
+            // len(recved), chid, conn.RemoteAddr(), mode, isServer)
             
         // mode
         // 0(Transparent): Transmit directly.
@@ -984,7 +986,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
             if (mode == "1" && isServer) || (mode == "2" && isServer == false) {
                 output, err := AESEncPacket(pwd, recved)
                 if err != nil {
-                    log.Printf("AESEncPacket failed, err=%v \n\n", err)
+                    log.Printf("AESEncPacket failed, err=%v, %v(%v=%v) \n\n", err, chid, conn.LocalAddr(), conn.RemoteAddr())
                     removeConnQ <- chid
                     break
                 }
@@ -992,7 +994,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
                 // package
                 b, err :=packData(output)
                 if err != nil {
-                    log.Printf("packData failed, err=%v \n\n", err)
+                    log.Printf("packData failed, err=%v, %v(%v=%v) \n\n", err, chid, conn.LocalAddr(), conn.RemoteAddr())
                     removeConnQ <- chid
                     break
                 }
@@ -1002,7 +1004,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
             } else if (mode == "1" && isServer == false) || (mode == "2" && isServer) {
                 output, err := AESDecPacket(pwd, recved)
                 if err != nil {
-                    log.Printf("AESDecPacket failed, err=%v \n\n", err)
+                    log.Printf("AESDecPacket failed, err=%v, %v(%v=%v) \n\n", err, chid, conn.LocalAddr(), conn.RemoteAddr())
                     removeConnQ <- chid
                     break
                 }
@@ -1058,7 +1060,7 @@ func contentOfFile(fileName string) ([]byte, error) {
         n, err := fin.Read(buf[total:])
         if err != nil {
             if err==io.EOF {
-                log.Printf("Read EOF. fileName=%v \n\n", fileName)
+                // log.Printf("Read EOF. fileName=%v \n\n", fileName)
                 total += n
                 break
             } else {
