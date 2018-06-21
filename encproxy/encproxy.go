@@ -117,6 +117,7 @@ var caCryptoCipherIv = []byte{'c', '#', 'Z', '%', 0x08, 'T', '!', 'M', '=', '+',
 
     
 var maxNetowrkConnections = 1000 // 允许的最多连接数量, 包含主动连接和接受的连接.
+var defConnectReadTimeout uint32 = 60*15 // 默认的读数据超时. 防止有些应用业务层没有心跳导致动不动被断开连接，故在这里设置得长一些.
 
 var (
 	listen  = flag.String("listen", "127.0.0.1:38601", "Address to listen. Can be empty, default is 127.0.0.1:38601.")
@@ -143,7 +144,7 @@ var sendQ = make(chan sendQEle)        // 要发送的非握手数据发给 Disp
 var sendQForHandshaking = make(chan sendQEle)        // 要发送的握手数据发给 Dispatcher
 var createConnQ = make(chan *connInfo) // 连接创建
 var removeConnQ = make(chan string)    // 连接关闭
-var netowrkConnectionsCountUpdatedQ = make(chan int, 1024)    // 网络连接数量变化通知
+var netowrkConnectionsCountUpdatedQ = make(chan int, 1024*1024)    // 网络连接数量变化通知
 
 func main() {
 	flag.Parse()
@@ -263,8 +264,8 @@ func Dispatcher() {
 
 		case connInfo := <-createConnQ: // 接收到连接创建通知时，创建连接信息。                    
 			connMap[connInfo.chid] = connInfo
-			log.Printf("Create connection: %v(%v=%v) [%v] \n\n",
-				connInfo.chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr(), connInfo.anotherChid)
+			log.Printf("Create connection: %v(%v=%v) [%v], total connections count: %v \n\n",
+				connInfo.chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr(), connInfo.anotherChid, len(connMap))
 
             netowrkConnectionsCountUpdatedQ <- len(connMap)
 
@@ -282,10 +283,10 @@ func Dispatcher() {
 			if !found {
 				continue
 			}
-            log.Printf("Now close anotherConnInfo: %v(%v=%v) \n\n", 
-            	anotherConnInfo.chid, anotherConnInfo.conn.LocalAddr(), anotherConnInfo.conn.RemoteAddr())
 			anotherConnInfo.conn.Close()
             delete(connMap, anotherConnInfo.chid)
+            log.Printf("Now close anotherConnInfo: %v(%v=%v), total connections count: %v \n\n", 
+                anotherConnInfo.chid, anotherConnInfo.conn.LocalAddr(), anotherConnInfo.conn.RemoteAddr(), len(connMap))
 
             netowrkConnectionsCountUpdatedQ <- len(connMap)
 		}
@@ -309,9 +310,12 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
 			continue
 		}
 		defer serverConn.Close()
-        SetReadTimeout(serverConn, 60*60)
+        SetReadTimeout(serverConn, defConnectReadTimeout)
 
-        // 接收网络连接数更新通知, 或者一定时间收不到通知做超时处理
+        // 接收网络连接数更新通知, 或者一定时间收不到通知做超时处理.
+        // 这个连接数包括了接受的以及主动连接的两部分.
+        // 如果创建或关闭连接时发给 chan netowrkConnectionsCountUpdatedQ 中的信号没有恰好在此处正在接收，那么会保留在 chan 队列中.
+        // 如果下次接收到连接了, 此时循环把这个 chan 中的缓冲数据取完. 最后一个数值传为最新的连接数进行后续判断.
         currentNetowrkConnectionsCount := 0
         var timer *time.Timer
         stop := false
@@ -319,9 +323,9 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
             select {
             case <- func() <-chan time.Time {
                 if timer ==nil {
-                    timer =time.NewTimer(2*time.Second)
+                    timer =time.NewTimer(1*time.Second)
                 } else {
-                    timer.Reset(2*time.Second)
+                    timer.Reset(1*time.Second)
                 }
                 return timer.C
             }():
@@ -383,16 +387,16 @@ func clientHandler(connect string, serverConn net.Conn, serverChid string, clien
 		}
 	}
 	defer clientConn.Close()
-    SetReadTimeout(serverConn, 60*60)
+    SetReadTimeout(serverConn, defConnectReadTimeout)
 
 	log.Printf("Connected to %v(%v=%v) \n\n", clientChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
-	createConnQ <- &connInfo{clientConn, clientChid, 60 * 15, serverChid}
+	createConnQ <- &connInfo{clientConn, clientChid, defConnectReadTimeout, serverChid}
     
 	readAndSendDataLoop(clientConn, clientChid, false, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
 }
 
 func serverHandler(serverConn net.Conn, serverChid string, clientChid string, mode string, autoAgreeUnknowFingerprint bool, signalHandshakeOverQ chan string, signalMode2ToStartConnectQ chan bool) {
-	createConnQ <- &connInfo{serverConn, serverChid, 60 * 15, clientChid}
+	createConnQ <- &connInfo{serverConn, serverChid, defConnectReadTimeout, clientChid}
 
 	readAndSendDataLoop(serverConn, serverChid, true, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
 }
@@ -564,6 +568,8 @@ func calFingerPrint(peerPubBuf []byte) (string) {
 }
 
 func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (bool, * rsa.PublicKey) {
+    log.Printf("checkPeerPublicKey, autoAgreeUnknowFingerprint=%v \n", autoAgreeUnknowFingerprint)
+    
     fingerPrint := calFingerPrint(peerPubBuf)
     whitelistFileName := "whitelist.txt"
     whiteFingerListByte, err := contentOfFile(whitelistFileName) 
@@ -1119,7 +1125,7 @@ func appendToFile(fileName string, buf []byte) (error) {
     return nil
 }
 
-func SetReadTimeout(conn net.Conn, timeoutSec int) {
+func SetReadTimeout(conn net.Conn, timeoutSec uint32) {
 	conn.SetDeadline(time.Now().Add(time.Duration(timeoutSec) * time.Second))
 }
 
