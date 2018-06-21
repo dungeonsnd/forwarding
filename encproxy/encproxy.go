@@ -329,13 +329,15 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
                 }
                 return timer.C
             }():
-                log.Printf("netowrkConnectionsCountUpdatedQ timer, connectionsCount{%v}, max:%v \n\n",
+                log.Printf("Accepting(%v=%v), netowrkConnectionsCountUpdatedQ timer, connectionsCount{%v}, max:%v \n\n",
+                    serverConn.LocalAddr(), serverConn.RemoteAddr(),
                     currentNetowrkConnectionsCount, maxNetowrkConnections)
                 stop = true
                 break
 
             case currentNetowrkConnectionsCount = <- netowrkConnectionsCountUpdatedQ:
-                log.Printf("chan of netowrkConnectionsCountUpdatedQ recved, connectionsCount{%v}, maxCount:%v \n\n",
+                log.Printf("Accepting(%v=%v), got count from netowrkConnectionsCountUpdatedQ, connectionsCount{%v}, maxCount:%v \n\n",
+                    serverConn.LocalAddr(), serverConn.RemoteAddr(),
                     currentNetowrkConnectionsCount, maxNetowrkConnections)
             }
 
@@ -353,7 +355,7 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
         } else {
             serverChid := genNewChid()
             clientChid := genNewChid()
-            log.Printf("Accept from %v(%v=%v) \n\n", serverChid, serverConn.LocalAddr(), serverConn.RemoteAddr())
+            log.Printf("Accepted from %v(%v=%v) \n\n", serverChid, serverConn.LocalAddr(), serverConn.RemoteAddr())
 
             var signalHandshakeOverQ = make(chan string, 16)    // 握手结果信号, len(str)>1时表示pwd, 否则表示握手失败.
             var signalMode2ToStartConnectQ = make(chan bool, 16)    // 握手即将结束信号
@@ -569,7 +571,7 @@ func calFingerPrint(peerPubBuf []byte) (string) {
 
 func checkPeerPublicKey(peerPubBuf []byte, autoAgreeUnknowFingerprint bool) (bool, * rsa.PublicKey) {
     log.Printf("checkPeerPublicKey, autoAgreeUnknowFingerprint=%v \n", autoAgreeUnknowFingerprint)
-    
+
     fingerPrint := calFingerPrint(peerPubBuf)
     whitelistFileName := "whitelist.txt"
     whiteFingerListByte, err := contentOfFile(whitelistFileName) 
