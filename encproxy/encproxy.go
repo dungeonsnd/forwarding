@@ -383,20 +383,44 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
 }
 
 func clientHandler(connect string, serverConn net.Conn, serverChid string, clientChid string, mode string, autoAgreeUnknowFingerprint bool, signalHandshakeOverQ chan string, signalMode2ToStartConnectQ chan bool) {
+
+    log.Printf("[START] gorutine for clientHandler,  clientChid:%v, serverChid:%v\n\n", 
+        clientChid, serverChid)
+
     if mode=="2" {
-        hsResult := <-signalMode2ToStartConnectQ
-        if false==hsResult {
-            log.Printf("Recved handshake failed signal in clientHandler. clientChid:%v \n\n", clientChid)
+        var timer *time.Timer
+        select {
+        case <- func() <-chan time.Time {
+            if timer ==nil {
+                timer =time.NewTimer(60*time.Second)
+            } else {
+                timer.Reset(60*time.Second)
+            }
+            return timer.C
+        }():
+            log.Printf("Recved handshake signal timeout from signalMode2ToStartConnectQ in clientHandler. clientChid:%v \n\n", clientChid)
+            log.Printf("[STOP] gorutine for clientHandler,  clientChid:%v, serverChid:%v\n\n", 
+                clientChid, serverChid)
             return
+
+        case hsResult := <-signalMode2ToStartConnectQ:
+            if false==hsResult {
+                log.Printf("Recved handshake failed signal from signalMode2ToStartConnectQ in clientHandler. clientChid:%v \n\n", clientChid)
+                log.Printf("[STOP] gorutine for clientHandler,  clientChid:%v, serverChid:%v\n\n", 
+                    clientChid, serverChid)
+                return
+            }
         }
+
     }
+
 
 	var clientConn net.Conn
 	for {
 		c, err := net.Dial("tcp", connect)
 		if err != nil {
-			log.Printf("Connect %s failed! \n", connect)
-			time.Sleep(2000 * time.Millisecond)
+			log.Printf("Connect %s failed! clientChid:%v, serverChid:%v \n\n", connect, clientChid, serverChid, )
+			time.Sleep(3000 * time.Millisecond)
 			continue
 		} else {
 			clientConn = c
@@ -409,8 +433,6 @@ func clientHandler(connect string, serverConn net.Conn, serverChid string, clien
 	log.Printf("Connected to %v(%v=%v) \n\n", clientChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 	createConnQ <- &connInfo{clientConn, clientChid, defConnectReadTimeout, serverChid}
     
-    log.Printf("[START] gorutine for clientHandler,  clientChid:%v, serverChid:%v, (%v=%v)\n\n", 
-        clientChid, serverChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 	readAndSendDataLoop(clientConn, clientChid, false, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
     log.Printf("[STOP] gorutine for clientHandler,  clientChid:%v, serverChid:%v, (%v=%v)\n\n", 
         clientChid, serverChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
@@ -437,7 +459,7 @@ func genNewChid() string {
 
 func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (int, error){
     // Read header
-    log.Printf("Before ReadData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
+    // log.Printf("Before ReadData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
     header, err := ReadData(conn, 4)
     if err != nil {            // 关闭时给 Dispatcher 发送通知
         if err == io.EOF || err == io.ErrUnexpectedEOF{
@@ -477,7 +499,7 @@ func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (i
 }
 
 func readFullDataOnUnencryptedSession(conn net.Conn, chid string, data []byte) (int, error) {
-    log.Printf("Before readFullData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
+    // log.Printf("Before readFullData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
     bodyLen, err := conn.Read(data) // 读出数据，放入 Dispatcher 的发送队列
     if err != nil {           // 关闭时给 Dispatcher 发送通知
         if err == io.EOF {
@@ -930,10 +952,10 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
         
         if len(pwd)<=1 {
             if (mode=="2" && isServer == false) {
-                log.Printf("Recved handshake failed signal in clientHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
+                log.Printf("Recved handshake signal failed/timeout in clientHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
                     chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
             } else {
-                log.Printf("Recved handshake failed signal in serverHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
+                log.Printf("Recved handshake signal failed/timeout in serverHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
                     chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
             }
             return // 发送的地方 chan 已经被关闭过了.
