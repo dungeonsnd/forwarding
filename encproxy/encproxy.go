@@ -117,7 +117,7 @@ var caCryptoCipherIv = []byte{'c', '#', 'Z', '%', 0x08, 'T', '!', 'M', '=', '+',
 
     
 var maxNetowrkConnections = 1000 // 允许的最多连接数量, 包含主动连接和接受的连接.
-var defConnectReadTimeout uint32 = 60*15 // 默认的读数据超时. 防止有些应用业务层没有心跳导致动不动被断开连接，故在这里设置得长一些.
+var defConnectReadTimeout uint32 = 60*20 // 默认的读数据超时. 防止有些应用业务层没有心跳导致动不动被断开连接，故在这里设置得长一些.
 
 var (
 	listen  = flag.String("listen", "127.0.0.1:38601", "Address to listen. Can be empty, default is 127.0.0.1:38601.")
@@ -206,6 +206,8 @@ func showMyFingerPrint() {
 
 // Dispatcher 管理所有客户端连接信息； 发送数据
 func Dispatcher() {
+
+    var timer *time.Timer
 	connMap := make(map[string]*connInfo)
 	for {
 		select {
@@ -264,17 +266,18 @@ func Dispatcher() {
 
 		case connInfo := <-createConnQ: // 接收到连接创建通知时，创建连接信息。                    
 			connMap[connInfo.chid] = connInfo
-			log.Printf("Create connection: %v(%v=%v) [%v], total connections count: %v \n\n",
-				connInfo.chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr(), connInfo.anotherChid, len(connMap))
+			log.Printf("Create connection: %v(%v=%v) [%v]\n\n",
+				connInfo.chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr(), connInfo.anotherChid)
 
             netowrkConnectionsCountUpdatedQ <- len(connMap)
+            log.Printf("Total connections count: %v \n\n", len(connMap))
 
 		case chid := <-removeConnQ: // 接收到连接关闭通知时，移除连接信息。
 			connInfo, found := connMap[chid]
 			if !found {
 				continue
 			}
-            log.Printf("Now close connection: %v(%v=%v) \n\n", chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr())
+            log.Printf("Close connection: %v(%v=%v) \n\n", chid, connInfo.conn.LocalAddr(), connInfo.conn.RemoteAddr())
             connInfo.conn.Close()
             delete(connMap, chid)
 
@@ -283,12 +286,24 @@ func Dispatcher() {
 			if !found {
 				continue
 			}
+            log.Printf("Close anotherConnInfo: %v(%v=%v) \n\n", 
+                anotherConnInfo.chid, anotherConnInfo.conn.LocalAddr(), anotherConnInfo.conn.RemoteAddr())
 			anotherConnInfo.conn.Close()
             delete(connMap, anotherConnInfo.chid)
-            log.Printf("Now close anotherConnInfo: %v(%v=%v), total connections count: %v \n\n", 
-                anotherConnInfo.chid, anotherConnInfo.conn.LocalAddr(), anotherConnInfo.conn.RemoteAddr(), len(connMap))
 
             netowrkConnectionsCountUpdatedQ <- len(connMap)
+            log.Printf("Total connections count: %v \n\n", len(connMap))
+
+        case <- func() <-chan time.Time {
+                if timer ==nil {
+                    timer =time.NewTimer(3*60*time.Second)
+                } else {
+                    timer.Reset(3*60*time.Second)
+                }
+                return timer.C
+            }():
+                log.Printf("Dispatcher timer, total connections count: %v \n\n", len(connMap))
+
 		}
 	}
 }
@@ -323,9 +338,9 @@ func Accepter(listen string, connect string, mode string, autoAgreeUnknowFingerp
             select {
             case <- func() <-chan time.Time {
                 if timer ==nil {
-                    timer =time.NewTimer(1*time.Second)
+                    timer =time.NewTimer(2*time.Second)
                 } else {
-                    timer.Reset(1*time.Second)
+                    timer.Reset(2*time.Second)
                 }
                 return timer.C
             }():
@@ -381,7 +396,7 @@ func clientHandler(connect string, serverConn net.Conn, serverChid string, clien
 		c, err := net.Dial("tcp", connect)
 		if err != nil {
 			log.Printf("Connect %s failed! \n", connect)
-			time.Sleep(3000 * time.Millisecond)
+			time.Sleep(2000 * time.Millisecond)
 			continue
 		} else {
 			clientConn = c
@@ -394,13 +409,21 @@ func clientHandler(connect string, serverConn net.Conn, serverChid string, clien
 	log.Printf("Connected to %v(%v=%v) \n\n", clientChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 	createConnQ <- &connInfo{clientConn, clientChid, defConnectReadTimeout, serverChid}
     
+    log.Printf("[START] gorutine for clientHandler,  clientChid:%v, serverChid:%v, (%v=%v)\n\n", 
+        clientChid, serverChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 	readAndSendDataLoop(clientConn, clientChid, false, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
+    log.Printf("[STOP] gorutine for clientHandler,  clientChid:%v, serverChid:%v, (%v=%v)\n\n", 
+        clientChid, serverChid, clientConn.LocalAddr(), clientConn.RemoteAddr())
 }
 
 func serverHandler(serverConn net.Conn, serverChid string, clientChid string, mode string, autoAgreeUnknowFingerprint bool, signalHandshakeOverQ chan string, signalMode2ToStartConnectQ chan bool) {
 	createConnQ <- &connInfo{serverConn, serverChid, defConnectReadTimeout, clientChid}
 
+    log.Printf("[START] gorutine for serverHandler,  serverChid:%v, clientChid:%v, (%v=%v) \n\n", 
+            serverChid, clientChid, serverConn.LocalAddr(), serverConn.RemoteAddr())
 	readAndSendDataLoop(serverConn, serverChid, true, mode, autoAgreeUnknowFingerprint, signalHandshakeOverQ, signalMode2ToStartConnectQ)
+    log.Printf("[STOP] gorutine for serverHandler,  serverChid:%v, clientChid:%v, (%v=%v) \n\n", 
+            serverChid, clientChid, serverConn.LocalAddr(), serverConn.RemoteAddr())
 }
 
 func genNewChid() string {
@@ -414,7 +437,7 @@ func genNewChid() string {
 
 func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (int, error){
     // Read header
-//    log.Printf("Before ReadData, %v(%v) \n\n", chid, conn.RemoteAddr())
+    log.Printf("Before ReadData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
     header, err := ReadData(conn, 4)
     if err != nil {            // 关闭时给 Dispatcher 发送通知
         if err == io.EOF || err == io.ErrUnexpectedEOF{
@@ -454,7 +477,7 @@ func readAndUnpackOnEncryptedSession(conn net.Conn, chid string, data []byte) (i
 }
 
 func readFullDataOnUnencryptedSession(conn net.Conn, chid string, data []byte) (int, error) {
-//    log.Printf("Before readFullData, %v(%v) \n\n", chid, conn.RemoteAddr())
+    log.Printf("Before readFullData, %v(%v=%v) \n\n", chid, conn.LocalAddr(), conn.RemoteAddr())
     bodyLen, err := conn.Read(data) // 读出数据，放入 Dispatcher 的发送队列
     if err != nil {           // 关闭时给 Dispatcher 发送通知
         if err == io.EOF {
@@ -884,20 +907,39 @@ func GoID() int {
 func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string, autoAgreeUnknowFingerprint bool, signalHandshakeOverQ chan string, signalMode2ToStartConnectQ chan bool) {
 
     pwd := " "
-    if mode=="2" && isServer == false {
-        pwd = <-signalHandshakeOverQ
+    if (mode=="2" && isServer == false) || (mode=="1" && isServer) {
+        var timer *time.Timer
+        select {
+        case <- func() <-chan time.Time {
+            if timer ==nil {
+                timer =time.NewTimer(60*time.Second)
+            } else {
+                timer.Reset(60*time.Second)
+            }
+            return timer.C
+        }():
+            signalMode2ToStartConnectQ <- false
+            signalHandshakeOverQ <- " "
+            close(signalMode2ToStartConnectQ)
+            close(signalHandshakeOverQ)
+            break
+
+        case pwd = <-signalHandshakeOverQ:
+            break
+        }
+        
         if len(pwd)<=1 {
-            log.Printf("Recved handshake failed signal in clientHandler. mode:%v, isServer:%v \n\n", mode, isServer)
-            return
+            if (mode=="2" && isServer == false) {
+                log.Printf("Recved handshake failed signal in clientHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
+                    chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
+            } else {
+                log.Printf("Recved handshake failed signal in serverHandler. chid:%v(%v=%v), mode:%v, isServer:%v \n\n",
+                    chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
+            }
+            return // 发送的地方 chan 已经被关闭过了.
         }
     }    
-    if mode=="1" && isServer {
-        pwd = <-signalHandshakeOverQ
-        if len(pwd)<=1 {
-            log.Printf("Recved handshake failed signal in serverHandler. mode:%v, isServer:%v \n\n", mode, isServer)
-            return
-        }
-    }
+
         
     log.Printf("readAndSendDataLoop, recving data. chid:%v(%v=%v), mode:%v, isServer:%v\n\n",
         chid, conn.LocalAddr(), conn.RemoteAddr(), mode, isServer)
@@ -943,7 +985,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
                     removeConnQ <- chid
                     break
 
-                } else if handshakeStepWaitPeerRandomDataToSign==ctx.handshakeStep {
+                } else if handshakeStepWaitPeerRandomDataToSign==ctx.handshakeStep { // 
                     signalMode2ToStartConnectQ <- true                 
                     continue
                 
@@ -953,7 +995,7 @@ func readAndSendDataLoop(conn net.Conn, chid string, isServer bool, mode string,
                     ctx.myRandomSeed =nil
                     ctx.peerRandomSeed =nil
                     
-                    time.Sleep(1000 * time.Millisecond)
+                    time.Sleep(100 * time.Millisecond)
                     pwd = hex.EncodeToString(ctx.sessionKey)
                     signalHandshakeOverQ <- pwd
                     close(signalMode2ToStartConnectQ)
