@@ -88,15 +88,7 @@ EChat 旨在实现常用平台的完全开源的聊天IM应用程序，如 **Win
 
 
 
-## 4 加星
-
-喜欢的一定要给个 star 啊， 求星星， 求赞! 
-
-
-## 5 author
-
-author: jeffery
-
+## 4 author
 email: dungeonsnd@gmail.com
 
 
